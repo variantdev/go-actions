@@ -1,5 +1,9 @@
 # go-actions
 
+[![](https://img.shields.io/docker/automated/variantdev/actions.svg)](https://hub.docker.com/r/variantdev/actions)
+[![](https://img.shields.io/docker/pulls/variantdev/actions.svg)](https://hub.docker.com/r/variantdev/actions)
+[![](https://img.shields.io/docker/stars/variantdev/actions.svg)](https://hub.docker.com/r/variantdev/actions)
+
 A collection of usable commands for GitHub v2 Actions, written in Go. 
 
 Use for as-is, or reference and inspiration of your own command.
