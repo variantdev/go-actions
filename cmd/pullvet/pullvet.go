@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/google/go-github/github"
 	"github.com/variantdev/go-actions"
 	"github.com/variantdev/go-actions/pkg/pullvet"
 	"os"
@@ -22,7 +23,20 @@ func main() {
 
 	flag.Parse()
 
-	if err := cmd.Run(actions.PullRequestEvent().PullRequest); err != nil {
+	var pr *github.PullRequest
+
+	checkRun, err := actions.CheckRunEvent()
+	if err != nil {
+		pull, err := actions.PullRequestEvent()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+		}
+		pr = pull.PullRequest
+	} else {
+		pr = checkRun.CheckRun.PullRequests[0]
+	}
+
+	if err := cmd.Run(pr); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}

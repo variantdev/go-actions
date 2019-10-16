@@ -24,10 +24,18 @@ func Event() []byte {
 	return payload
 }
 
-func PullRequestEvent() *github.PullRequestEvent {
+func PullRequestEvent() (*github.PullRequestEvent, error) {
 	evt, err := github.ParseWebHook("pull_request", Event())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return evt.(*github.PullRequestEvent)
+	return evt.(*github.PullRequestEvent), nil
+}
+
+func CheckRunEvent() (*github.CheckRunEvent, error) {
+	evt, err := github.ParseWebHook("check_run", Event())
+	if err != nil {
+		return nil, err
+	}
+	return evt.(*github.CheckRunEvent), nil
 }
