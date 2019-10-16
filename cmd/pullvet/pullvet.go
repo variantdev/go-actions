@@ -17,7 +17,7 @@ func main() {
 	cmd := pullvet.NewCommand()
 
 	fs := flag.CommandLine
-	fs.Init("ruler", flag.ExitOnError)
+	fs.Init("pullvet", flag.ExitOnError)
 	cmd.AddFlags(fs)
 
 	flag.Parse()
