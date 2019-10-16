@@ -4,6 +4,9 @@ build/pullvet:
 build:
 	go build -o bin/actions ./cmd
 
+test:
+	echo
+
 # Run this like: SOURCE_BRANCH= make build/docker so that you can build the `latest` from a commit that is not tagged yet
 build/docker: SOURCE_BRANCH ?= v1.2.3
 build/docker:
