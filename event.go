@@ -39,3 +39,11 @@ func CheckRunEvent() (*github.CheckRunEvent, error) {
 	}
 	return evt.(*github.CheckRunEvent), nil
 }
+
+func CheckSuiteEvent() (*github.CheckSuiteEvent, error) {
+	evt, err := github.ParseWebHook("check_suite", Event())
+	if err != nil {
+		return nil, err
+	}
+	return evt.(*github.CheckSuiteEvent), nil
+}
