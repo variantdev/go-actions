@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/google/go-github/github"
-	"github.com/variantdev/go-actions"
 	"github.com/variantdev/go-actions/pkg/cmd"
 	"os"
 	"regexp"
@@ -131,22 +130,3 @@ func formatFailures(failures []string) string {
 	return strings.Join(lines, "\n")
 }
 
-func GetPullRequest() (*github.PullRequest, error) {
-	var pr *github.PullRequest
-	checkSuite, err := actions.CheckSuiteEvent()
-	if err != nil {
-		checkRun, err := actions.CheckRunEvent()
-		if err != nil {
-			pull, err := actions.PullRequestEvent()
-			if err != nil {
-				return nil, err
-			}
-			pr = pull.PullRequest
-		} else {
-			pr = checkRun.CheckRun.PullRequests[0]
-		}
-	} else {
-		pr = checkSuite.CheckSuite.PullRequests[0]
-	}
-	return pr, nil
-}

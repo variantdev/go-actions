@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/variantdev/go-actions"
 	"github.com/variantdev/go-actions/pkg/pullvet"
 	"os"
 )
@@ -44,7 +45,7 @@ func main() {
 
 		fs.Parse(os.Args[2:])
 
-		pr, err := pullvet.GetPullRequest()
+		pr, err := actions.PullRequest()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(1)
