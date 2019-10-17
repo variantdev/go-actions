@@ -152,7 +152,7 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 	summary, text, runErr := c.runIt()
 
 	log.Printf("Updating CheckRun")
-	return c.UpdateCheckRun(checkRun, summary, text, runErr)
+	return c.UpdateCheckRun(cr.owner, cr.repo, checkRun, summary, text, runErr)
 }
 
 func (c *Command) EnsureCheckSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
@@ -171,10 +171,10 @@ func (c *Command) EnsureCheckSuite(pre *github.PullRequestEvent) (*github.CheckS
 func (c *Command) ExecCheckRun(e *github.CheckRunEvent) error {
 	stdout, fullout, err := c.runIt()
 
-	return c.UpdateCheckRun(e.CheckRun, stdout, fullout, err)
+	return c.UpdateCheckRun(e.GetRepo().Owner.GetLogin(), e.GetRepo().GetName(), e.CheckRun, stdout, fullout, err)
 }
 
-func (c *Command) UpdateCheckRun(checkRun *github.CheckRun, summary, text string, runErr error) error {
+func (c *Command) UpdateCheckRun(repo, owner string, checkRun *github.CheckRun, summary, text string, runErr error) error {
 	if checkRun.GetName() != c.checkName {
 		return fmt.Errorf("unexpected run name: expected %q, got %q", c.checkName, checkRun.GetName())
 	}
@@ -191,8 +191,9 @@ func (c *Command) UpdateCheckRun(checkRun *github.CheckRun, summary, text string
 		conclusion = "success"
 	}
 
-	owner := checkRun.CheckSuite.Repository.Owner.GetLogin()
-	repo := checkRun.CheckSuite.Repository.GetName()
+	// This panics due to missing field(in perhaps some cases)
+	//owner := checkRun.CheckSuite.Repository.Owner.GetLogin()
+	//repo := checkRun.CheckSuite.Repository.GetName()
 	_, _, err = client.Checks.UpdateCheckRun(context.Background(), owner, repo, checkRun.GetID(), github.UpdateCheckRunOptions{
 		//Name:        "",
 		//HeadBranch:  nil,
