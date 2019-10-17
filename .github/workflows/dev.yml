@@ -96,3 +96,13 @@ jobs:
         bin/actions checks -status-context checks/changelog -- bin/actions pullvet -require-any -note changelog1 -note changelog2
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+  ensure-releasenote:
+    runs-on: ubuntu-latest
+    if: startsWith(github.repository, 'variantdev/')
+    steps:
+    - uses: docker://variantdev/actions:latest
+      run: sh
+      with:
+        args: -c 'actions checks -status-context checks/releasenote -- actions pullvet -require-any -label releasenote/none -note releasenote'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
