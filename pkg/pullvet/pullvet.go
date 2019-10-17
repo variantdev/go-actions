@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-const defaultNoteRegex = "[\\*]*([^\\*:]+)[\\*]*:\\s```\n([^`]+)\n```"
+const defaultNoteRegex = "[\\*]*([^\\*\r\n:]+)[\\*]*:\\s```\n([^`]+)\n```"
 
 var newlineRegex = regexp.MustCompile(`\r\n|\r|\n`)
 
@@ -33,7 +33,7 @@ type Command struct {
 }
 
 func normalizeNewlines(str string) string {
-	return newlineRegex.Copy().ReplaceAllString(str, "\n")
+	return newlineRegex.ReplaceAllString(str, "\n")
 }
 
 func New() *Command {
@@ -109,32 +109,41 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 
 	noteTitles := map[string]struct{}{}
 
-	client, err := actions.CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), "", "")
-	if err != nil {
-		return err
-	}
+	var body string
 
-	pr, _, err :=client.PullRequests.Get(context.Background(), owner, repo, pullRequest.GetNumber())
-	if err != nil {
-		return err
-	}
+	if owner != "" {
+		client, err := actions.CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), "", "")
+		if err != nil {
+			return err
+		}
 
-	buf := bytes.Buffer{}
-	enc := json.NewEncoder(&buf)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(pr); err != nil {
-		return err
-	}
-	log.Printf("Pull request:\n%s", buf.String())
+		pr, _, err := client.PullRequests.Get(context.Background(), owner, repo, pullRequest.GetNumber())
+		if err != nil {
+			return err
+		}
 
-	body := pr.GetBody()
+		buf := bytes.Buffer{}
+		enc := json.NewEncoder(&buf)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(pr); err != nil {
+			return err
+		}
+		log.Printf("Pull request:\n%s", buf.String())
+
+		body = pr.GetBody()
+	} else {
+		body = pullRequest.GetBody()
+	}
 
 	regex := regexp.MustCompile(c.noteRegex)
 
 	allNoteMatches := regex.FindAllStringSubmatch(normalizeNewlines(body), -1)
 	for _, m := range allNoteMatches {
-		noteTitles[m[0]] = struct{}{}
+		log.Printf("match: %v", m)
+		noteTitles[m[1]] = struct{}{}
 	}
+
+	log.Printf("note titles: %v", noteTitles)
 
 	for _, requiredNoteTitle := range c.noteTitles {
 		if _, ok := noteTitles[requiredNoteTitle]; ok {
@@ -166,4 +175,3 @@ func formatFailures(failures []string) string {
 	}
 	return strings.Join(lines, "\n")
 }
-

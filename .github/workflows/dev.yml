@@ -101,8 +101,9 @@ jobs:
     if: startsWith(github.repository, 'variantdev/')
     steps:
     - uses: docker://variantdev/actions:latest
-      run: sh
       with:
-        args: -c 'actions checks -status-context checks/releasenote -- actions pullvet -require-any -label releasenote/none -note releasenote'
+        entrypoint: sh
+        args: |
+          -c "actions checks -status-context checks/releasenote -- actions pullvet -require-any -label releasenote/none -note releasenote"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
