@@ -81,3 +81,18 @@ jobs:
         bin/actions checks -status-context checks/dev3 -- bin/actions pullvet -require-any -label dev3
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+  ensure-changelog:
+    runs-on: ubuntu-latest
+    if: startsWith(github.repository, 'variantdev/')
+    steps:
+    - uses: actions/checkout@master
+    - uses: actions/setup-go@v1
+      with:
+        go-version: '1.12.7'
+    - run: |
+        make build
+    - name: changelog
+      run: |
+        bin/actions checks -status-context checks/changelog -- bin/actions pullvet -require-any -note changelog1 -note changelog2
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

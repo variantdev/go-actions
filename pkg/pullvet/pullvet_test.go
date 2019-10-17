@@ -33,12 +33,27 @@ func TestNoteRegex(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: "changelog1:\r\n```\r\nchange1\r\n```\r\n\r\n**changelog2**:\r\n```\r\nchange2\r\n```\r\n",
+			expected: [][]string{
+				{
+					"changelog1:\n```\nchange1\n```",
+					"changelog1",
+					"change1",
+				},
+				{
+					"**changelog2**:\n```\nchange2\n```",
+					"changelog2",
+					"change2",
+				},
+			},
+		},
 	}
 
 	for i := range testcases {
 		tc := testcases[i]
 
-		got := regexp.MustCompile(defaultNoteRegex).FindAllStringSubmatch(tc.input, -1)
+		got := regexp.MustCompile(defaultNoteRegex).FindAllStringSubmatch(normalizeNewlines(tc.input), -1)
 
 		if !reflect.DeepEqual(tc.expected, got) {
 			t.Errorf("unexpected result:\nexpected=\n%v\n\ngot=\n%v\n", tc.expected, got)

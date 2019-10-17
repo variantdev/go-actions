@@ -13,6 +13,8 @@ import (
 
 const defaultNoteRegex = "[\\*]*([^\\*:]+)[\\*]*:\\s```\n([^`]+)\n```"
 
+var newlineRegex = regexp.MustCompile(`\r\n|\r|\n`)
+
 type Command struct {
 	labels     cmd.StringSlice
 	noteTitles cmd.StringSlice
@@ -24,6 +26,10 @@ type Command struct {
 	anyMilestone bool
 	requireAny   bool
 	requireAll   bool
+}
+
+func normalizeNewlines(str string) string {
+	return newlineRegex.Copy().ReplaceAllString(str, "\n")
 }
 
 func New() *Command {
@@ -103,7 +109,7 @@ func (c *Command) HandlePullRequest(pullRequest *github.PullRequest) error {
 
 	regex := regexp.MustCompile(c.noteRegex)
 
-	allNoteMatches := regex.FindAllStringSubmatch(body, -1)
+	allNoteMatches := regex.FindAllStringSubmatch(normalizeNewlines(body), -1)
 	for _, m := range allNoteMatches {
 		noteTitles[m[0]] = struct{}{}
 	}
