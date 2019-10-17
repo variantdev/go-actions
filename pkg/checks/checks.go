@@ -163,7 +163,7 @@ func (c *Command) logCheckRun(checkRun *github.CheckRun) {
 	if err := enc.Encode(checkRun); err != nil {
 		panic(err)
 	}
-	fmt.Printf("CheckRun:\n%s\n", buf.String())
+	log.Printf("CheckRun:\n%s", buf.String())
 }
 
 func (c *Command) EnsureCheckSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
