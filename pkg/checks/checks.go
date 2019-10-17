@@ -217,6 +217,7 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 	status := &github.RepoStatus{
 		State: github.String(state),
 		Context: github.String("checks/" + c.checkName),
+		Description: github.String(text),
 	}
 	repoStatus, _, err := client.Repositories.CreateStatus(context.Background(), cr.owner, cr.repo, sha, status)
 	if err != nil {
