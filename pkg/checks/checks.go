@@ -233,7 +233,11 @@ func (c *Command) instTokenClient() (*github.Client, error) {
 // instTokenClient uses an installation token to authenticate to the Github API.
 func instTokenClient(instToken, baseURL, uploadURL string) (*github.Client, error) {
 	// For installation tokens, Github uses a different token type ("token" instead of "bearer")
-	t := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: instToken, TokenType: "token"})
+	tokenType := "token"
+	if os.Getenv("GITHUB_TOKEN_TYPE") != "" {
+		tokenType = os.Getenv("GITHUB_TOKEN_TYPE")
+	}
+	t := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: instToken, TokenType: tokenType})
 	c := context.Background()
 	tc := oauth2.NewClient(c, t)
 	if baseURL != "" {

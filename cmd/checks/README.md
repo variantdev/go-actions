@@ -25,6 +25,13 @@ Usage of bin/checks:
 
 ## Running locally
 
+> This is just here to show the ideal developer experience. The reality is that you can't test `checks` locally.
+>
+> That's due to limitations in GitHub.
+> As Checks API requires a GitHub App installation token(not bearer token you're probably familiar with) to access
+> and there's currently no way to obtain an installation token locally,
+> you can't test this locally.
+
 Capture actual webhook payloads for `pull_request`, `check_suite`, `check_run` events by running `cat /github/workflow/event.json` on GitHub Actions.
 
 Install this workflow onto your test repository:
@@ -60,11 +67,11 @@ Then build and run `checks` against json files containing captured events:
 $ make build/checks
 
 # Typically this is run on Actions with `on: pull_requqest`
-$ GITHUB_EVENT_PATH=$(pwd)/pull_request_event.json bin/checks
+$ GITHUB_TOKEN_TYPE=bearer GITHUB_EVENT_PATH=$(pwd)/pull_request_event.json GITHUB_EVENT_NAME=pull_request bin/checks
 
 # `on: check_suite`
-$ GITHUB_EVENT_PATH=$(pwd)/check_suite_event.json bin/checks -create-run foo -create-run bar
+$ GITHUB_TOKEN_TYPE=bearer GITHUB_EVENT_PATH=$(pwd)/check_suite_event.json bin/checks -create-run foo -create-run bar
 
 # `on: check_run`
-$ GITHUB_EVENT_PATH=$(pwd)/check_run_event.json bin/checks -run foo -- actions pullvet ...
+$ GITHUB_TOKEN_TYPE=bearer GITHUB_EVENT_PATH=$(pwd)/check_run_event.json bin/checks -run foo -- actions pullvet ...
 ```
