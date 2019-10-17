@@ -139,8 +139,11 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 
 	allNoteMatches := regex.FindAllStringSubmatch(normalizeNewlines(body), -1)
 	for _, m := range allNoteMatches {
+		log.Printf("match: %v", m)
 		noteTitles[m[1]] = struct{}{}
 	}
+
+	log.Printf("note titles: %v", noteTitles)
 
 	for _, requiredNoteTitle := range c.noteTitles {
 		if _, ok := noteTitles[requiredNoteTitle]; ok {
