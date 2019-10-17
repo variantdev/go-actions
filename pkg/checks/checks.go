@@ -229,19 +229,7 @@ func run(cmd string, args []string) (string, string, error) {
 	return "mysummary", "mytext", err
 }
 
-func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
-	client, err := c.instTokenClient()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create a new installation token client: %s", err)
-	}
-
-	owner, repo := pre.GetRepo().GetOwner().GetLogin(), pre.GetRepo().GetName()
-
-	sha := pre.PullRequest.Head.GetSHA()
-
-	suites, res, err := client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{
-		CheckName: github.String(c.checkName),
-	})
+func (c *Command) logResponseAndError(suites *github.ListCheckSuiteResults, res *github.Response, err error) error {
 	if err != nil {
 		log.Printf("Error listing suites: %v", err)
 	} else {
@@ -250,7 +238,7 @@ func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, er
 		enc.SetIndent("", "  ")
 		jsonErr := enc.Encode(suites)
 		if jsonErr != nil {
-			return nil, jsonErr
+			return jsonErr
 		}
 		suitesJson := buf.String()
 		log.Printf("Listing suites: %s", suitesJson)
@@ -265,11 +253,40 @@ func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, er
 			log.Printf("Listing suites: %s", string(body))
 		}
 	}
+	return nil
+}
+
+func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
+	client, err := c.instTokenClient()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create a new installation token client: %s", err)
+	}
+
+	owner, repo := pre.GetRepo().GetOwner().GetLogin(), pre.GetRepo().GetName()
+
+	sha := pre.PullRequest.Head.GetSHA()
+
+	log.Printf("Listing all suites...")
+
+	suites, res, err := client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{
+	})
+
+	c.logResponseAndError(suites, res, err)
+
+	log.Printf("Listing relevant suites...")
+
+	suites, res, err = client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{
+		CheckName: github.String(c.checkName),
+	})
+
+	if err := c.logResponseAndError(suites, res, err); err != nil {
+		return nil, err
+	}
 
 	if suites.GetTotal() == 1 {
 		return suites.CheckSuites[0], nil
 	} else if suites.GetTotal() > 1 {
-		return nil, fmt.Errorf("too many suites exist(%d). maybe a bug?", suites.Total)
+		return nil, fmt.Errorf("too many suites exist(%d). maybe a bug?", suites.GetTotal())
 	}
 
 	return nil, nil
