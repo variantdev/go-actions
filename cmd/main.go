@@ -58,9 +58,9 @@ func main() {
 		cmd := checks.New()
 		cmd.AddFlags(fs)
 
-		fs.Parse(fs.Args())
+		fs.Parse(os.Args[2:])
 
-		if err := cmd.Run(os.Args); err != nil {
+		if err := cmd.Run(fs.Args()); err != nil {
 			fatal("%v\n", err)
 		}
 	default:
