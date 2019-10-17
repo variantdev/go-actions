@@ -93,6 +93,27 @@ func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.Chec
 		return nil, err
 	}
 
+	log.Printf("Running CreateCheckRun experiment")
+
+	_, _, err = c.CreateCheckRun(
+		client,
+		context.Background(),
+		cr.owner, cr.repo,
+		CreateCheckRunOptions{
+			Name:         cr.name,
+			HeadBranch:   suite.GetHeadBranch(),
+			HeadSHA:      suite.GetHeadSHA(),
+			StartedAt:    &github.Timestamp{Time: time.Now()},
+			Status:       github.String("queued"),
+			CheckSuiteID: suite.ID,
+		})
+
+	if err != nil {
+		log.Printf("Failed experimentation on CreateCheckRun: %v", err)
+	}
+
+	log.Printf("Creating a check run")
+
 	created, _, err := client.Checks.CreateCheckRun(
 		context.Background(),
 		cr.owner, cr.repo,
@@ -105,6 +126,40 @@ func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.Chec
 		})
 
 	return created, err
+}
+
+type CreateCheckRunOptions struct {
+	Name         string                   `json:"name"`                  // The name of the check (e.g., "code-coverage"). (Required.)
+	HeadBranch   string                   `json:"head_branch"`           // The name of the branch to perform a check against. (Required.)
+	HeadSHA      string                   `json:"head_sha"`              // The SHA of the commit. (Required.)
+	DetailsURL   *string                  `json:"details_url,omitempty"` // The URL of the integrator's site that has the full details of the check. (Optional.)
+	ExternalID   *string                  `json:"external_id,omitempty"` // A reference for the run on the integrator's system. (Optional.)
+	Status       *string                  `json:"status,omitempty"`      // The current status. Can be one of "queued", "in_progress", or "completed". Default: "queued". (Optional.)
+	Conclusion   *string                  `json:"conclusion,omitempty"`  // Can be one of "success", "failure", "neutral", "cancelled", "timed_out", or "action_required". (Optional. Required if you provide a status of "completed".)
+	// Does this really work?
+	CheckSuiteID *int64                   `json:"check_suite_id,omitempty`
+	StartedAt    *github.Timestamp        `json:"started_at,omitempty"`   // The time that the check run began. (Optional.)
+	CompletedAt  *github.Timestamp        `json:"completed_at,omitempty"` // The time the check completed. (Optional. Required if you provide conclusion.)
+	Output       *github.CheckRunOutput   `json:"output,omitempty"`       // Provide descriptive details about the run. (Optional)
+	Actions      []*github.CheckRunAction `json:"actions,omitempty"`      // Possible further actions the integrator can perform, which a user may trigger. (Optional.)
+}
+
+func (c *Command) CreateCheckRun(client *github.Client, ctx context.Context, owner, repo string, opt CreateCheckRunOptions) (*github.CheckRun, *github.Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/check-runs", owner, repo)
+	req, err := client.NewRequest("POST", u, opt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req.Header.Set("Accept", "application/vnd.github.antiope-preview+json")
+
+	checkRun := new(github.CheckRun)
+	resp, err := client.Do(ctx, req, checkRun)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return checkRun, resp, nil
 }
 
 func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
