@@ -273,7 +273,7 @@ func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, er
 
 	c.logResponseAndError(suites, res, err)
 
-	log.Printf("Listing relevant suites...")
+	log.Printf("Listing relevant suites for check name %q...", c.checkName)
 
 	suites, res, err = client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{
 		CheckName: github.String(c.checkName),
