@@ -21,7 +21,7 @@ on:
     - unlabeled
     - opened
     - edited
-    - closed
+#    - closed
     - reopened
     - synchronize
     - ready_for_review
