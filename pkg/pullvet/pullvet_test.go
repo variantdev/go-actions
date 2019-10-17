@@ -58,6 +58,22 @@ func TestNoteRegex(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: "releasenote:\r\n```\r\nreleasenotecontent\r\n```\r\n\r\nchangelog1:\r\n```\r\nchange1\r\n```\r\n",
+			expected: [][]string{
+				{
+					"releasenote:\n```\nreleasenotecontent\n```",
+					"releasenote",
+					"releasenotecontent",
+				},
+				{
+					// ensure that \r\n\r\n before "changelog1:" needs to be removed from here
+					"changelog1:\n```\nchange1\n```",
+					"changelog1",
+					"change1",
+				},
+			},
+		},
 	}
 
 	for i := range testcases {

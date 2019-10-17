@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-const defaultNoteRegex = "[\\*]*([^\\*:]+)[\\*]*:\\s```\n([^`]+)\n```"
+const defaultNoteRegex = "[\\*]*([^\\*\r\n:]+)[\\*]*:\\s```\n([^`]+)\n```"
 
 var newlineRegex = regexp.MustCompile(`\r\n|\r|\n`)
 
@@ -33,7 +33,7 @@ type Command struct {
 }
 
 func normalizeNewlines(str string) string {
-	return newlineRegex.Copy().ReplaceAllString(str, "\n")
+	return newlineRegex.ReplaceAllString(str, "\n")
 }
 
 func New() *Command {
