@@ -48,6 +48,16 @@ func TestNoteRegex(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: "releasenote:\n```\nreleasenotecontent\n```",
+			expected: [][]string{
+				{
+					"releasenote:\n```\nreleasenotecontent\n```",
+					"releasenote",
+					"releasenotecontent",
+				},
+			},
+		},
 	}
 
 	for i := range testcases {
@@ -127,7 +137,7 @@ func TestRun(t *testing.T) {
 	for i := range testcases {
 		tc := testcases[i]
 
-		err := tc.cmd.HandlePullRequest(tc.input)
+		err := tc.cmd.HandlePullRequest("", "", tc.input)
 
 		if tc.expected != "" && !strings.Contains(err.Error(), tc.expected) {
 			t.Errorf("unexpected error: expected=%q, got=%q", tc.expected, err)
