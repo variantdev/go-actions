@@ -145,7 +145,7 @@ type CreateCheckRunOptions struct {
 }
 
 func (c *Command) CreateCheckRun(client *github.Client, ctx context.Context, owner, repo string, opt CreateCheckRunOptions) (*github.CheckRun, *github.Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/check-runs", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/check-suites/%v/check-runs", owner, repo, *opt.CheckSuiteID)
 	req, err := client.NewRequest("POST", u, opt)
 	if err != nil {
 		return nil, nil, err
