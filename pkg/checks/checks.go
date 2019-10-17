@@ -174,7 +174,7 @@ func (c *Command) ExecCheckRun(e *github.CheckRunEvent) error {
 	return c.UpdateCheckRun(e.GetRepo().Owner.GetLogin(), e.GetRepo().GetName(), e.CheckRun, stdout, fullout, err)
 }
 
-func (c *Command) UpdateCheckRun(repo, owner string, checkRun *github.CheckRun, summary, text string, runErr error) error {
+func (c *Command) UpdateCheckRun(owner, repo string, checkRun *github.CheckRun, summary, text string, runErr error) error {
 	if checkRun.GetName() != c.checkName {
 		return fmt.Errorf("unexpected run name: expected %q, got %q", c.checkName, checkRun.GetName())
 	}
