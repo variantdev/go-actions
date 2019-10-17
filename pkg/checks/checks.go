@@ -259,7 +259,9 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 		if body != nil {
 			log.Printf("CreateCheckSuite: %s", string(body))
 		}
-	} else {
+	}
+
+	if err == nil {
 		buf := bytes.Buffer{}
 		enc := json.NewEncoder(&buf)
 		enc.SetIndent("", "  ")
@@ -274,7 +276,18 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 	log.Printf("Created check suite for %s with ID %d. Triggering :rerequested", ref, cs.GetID())
 	// It appears that merely creating the check suite does not trigger a check_suite:request.
 	// So we manually trigger a rerequest.
-	_, err = client.Checks.ReRequestCheckSuite(context.Background(), owner, repo, cs.GetID())
+	res, err = client.Checks.ReRequestCheckSuite(context.Background(), owner, repo, cs.GetID())
+
+	if res != nil {
+		read, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			log.Printf("Failed reading rerequest response: %v", err)
+		}
+		if read != nil {
+			log.Printf("Rerequest response: %s", string(read))
+		}
+	}
+
 	return err
 }
 
