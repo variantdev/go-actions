@@ -31,6 +31,7 @@ on:
     - review_request_removed
 jobs:
   run-example:
+    runs-on: ubuntu-latest
     if: startsWith(github.repository, 'variantdev/')
     steps:
     - uses: actions/checkout@master
