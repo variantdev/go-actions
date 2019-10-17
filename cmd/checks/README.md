@@ -27,6 +27,33 @@ Usage of bin/checks:
 
 Capture actual webhook payloads for `pull_request`, `check_suite`, `check_run` events by running `cat /github/workflow/event.json` on GitHub Actions.
 
+Install this workflow onto your test repository:
+
+https://github.com/variantdev/variant-github-actions-demo/blob/master/.github/workflows/dump-event.yml
+
+Open a PR against the repo:
+
+```
+git checkout -b test
+git commit --allow-empty
+git push
+hub pull-request
+```
+
+Browse to the Actions tab in your repo:
+
+```
+open https://github.com/USER/REPO/actions
+```
+
+Nagivate to the workflow run that corresponds to the pull request and browse `View raw logs` in the popup menu.
+
+Copy the dump of the event.json and save it as a json file:
+
+```
+$ pbpaste | awk '{$1=""; print $0;}' > pull_request_event.json
+```
+
 Then build and run `checks` against json files containing captured events:
 
 ```
