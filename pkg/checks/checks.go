@@ -147,11 +147,23 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 		checkRun = created
 	}
 
+	c.logCheckRun(checkRun)
+
 	log.Printf("Running the commmand for CheckRun %q", cr.name)
 	summary, text, runErr := c.runIt()
 
 	log.Printf("Updating CheckRun")
 	return c.UpdateCheckRun(cr.owner, cr.repo, checkRun, summary, text, runErr)
+}
+
+func (c *Command) logCheckRun(checkRun *github.CheckRun) {
+	buf := &bytes.Buffer{}
+	enc := json.NewEncoder(buf)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(checkRun); err != nil {
+		panic(err)
+	}
+	fmt.Printf("CheckRun:\n%s\n", buf.String())
 }
 
 func (c *Command) EnsureCheckSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
