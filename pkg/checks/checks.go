@@ -1,7 +1,9 @@
 package checks
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -194,9 +196,19 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 	ownerRepo := strings.Split(repoFullname, "/")
 	owner, repo := ownerRepo[0], ownerRepo[1]
 
-	_, res, err := client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{})
+	suites, res, err := client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{})
 	if err != nil {
 		log.Printf("Error listing suites: %v", err)
+	} else {
+		buf := bytes.Buffer{}
+		enc := json.NewEncoder(&buf)
+		enc.SetIndent("", "  ")
+		jsonErr := enc.Encode(suites)
+		if jsonErr != nil {
+			return jsonErr
+		}
+		suitesJson :=  buf.String()
+		log.Printf("Listing suites: %s", suitesJson)
 	}
 	if res != nil {
 		body, err := ioutil.ReadAll(res.Body)
@@ -247,6 +259,16 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 		if body != nil {
 			log.Printf("CreateCheckSuite: %s", string(body))
 		}
+	} else {
+		buf := bytes.Buffer{}
+		enc := json.NewEncoder(&buf)
+		enc.SetIndent("", "  ")
+		jsonErr := enc.Encode(cs)
+		if jsonErr != nil {
+			return jsonErr
+		}
+		csJson :=  buf.String()
+		log.Printf("Created suite: %s", csJson)
 	}
 
 	log.Printf("Created check suite for %s with ID %d. Triggering :rerequested", ref, cs.GetID())
