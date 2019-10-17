@@ -195,7 +195,7 @@ func (c *Command) UpdateCheckRun(owner, repo string, checkRun *github.CheckRun, 
 	//owner := checkRun.CheckSuite.Repository.Owner.GetLogin()
 	//repo := checkRun.CheckSuite.Repository.GetName()
 	_, _, err = client.Checks.UpdateCheckRun(context.Background(), owner, repo, checkRun.GetID(), github.UpdateCheckRunOptions{
-		//Name:        "",
+		Name: checkRun.GetName(),
 		//HeadBranch:  nil,
 		//HeadSHA:     nil,
 		//DetailsURL:  nil,
