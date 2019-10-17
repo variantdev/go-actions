@@ -1,11 +1,15 @@
 package pullvet
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/google/go-github/v28/github"
 	"github.com/variantdev/go-actions"
 	"github.com/variantdev/go-actions/pkg/cmd"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -48,14 +52,14 @@ func (c *Command) AddFlags(fs *flag.FlagSet) {
 }
 
 func (c *Command) Run() error {
-	pr, err := actions.PullRequest()
+	pr, owner, repo, err := actions.PullRequest()
 	if err != nil {
 		return err
 	}
-	return c.HandlePullRequest(pr)
+	return c.HandlePullRequest(owner, repo, pr)
 }
 
-func (c *Command) HandlePullRequest(pullRequest *github.PullRequest) error {
+func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.PullRequest) error {
 	var labels []string
 	labelSet := map[string]struct{}{}
 
@@ -105,7 +109,25 @@ func (c *Command) HandlePullRequest(pullRequest *github.PullRequest) error {
 
 	noteTitles := map[string]struct{}{}
 
-	body := pullRequest.GetBody()
+	client, err := actions.CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), "", "")
+	if err != nil {
+		return err
+	}
+
+	pr, _, err :=client.PullRequests.Get(context.Background(), owner, repo, pullRequest.GetNumber())
+	if err != nil {
+		return err
+	}
+
+	buf := bytes.Buffer{}
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(pr); err != nil {
+		return err
+	}
+	log.Printf("Pull request:\n%s", buf.String())
+
+	body := pr.GetBody()
 
 	regex := regexp.MustCompile(c.noteRegex)
 

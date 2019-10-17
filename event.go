@@ -63,28 +63,35 @@ func CheckSuiteEvent() (*github.CheckSuiteEvent, error) {
 	return evt.(*github.CheckSuiteEvent), nil
 }
 
-func PullRequest() (*github.PullRequest, error) {
+func PullRequest() (*github.PullRequest, string, string, error) {
 	var pr *github.PullRequest
+	var owner, repo string
 	switch EventName() {
 	case "pull_request":
 		pull, err := PullRequestEvent()
 		if err != nil {
-			return nil, err
+			return nil, "", "", err
 		}
 		pr = pull.PullRequest
+		owner = pull.Repo.Owner.GetLogin()
+		repo = pull.Repo.GetName()
 	case "check_run":
 		checkRun, err := CheckRunEvent()
 		if err != nil {
-			return nil, err
+			return nil, "", "", err
 		} else {
 			pr = checkRun.CheckRun.PullRequests[0]
 		}
+		owner = checkRun.Repo.Owner.GetLogin()
+		repo = checkRun.Repo.GetName()
 	case "check_suite":
 		checkSuite, err := CheckSuiteEvent()
 		if err != nil {
-			return nil, err
+			return nil, "", "", err
 		}
 		pr = checkSuite.CheckSuite.PullRequests[0]
+		owner = checkSuite.Repo.Owner.GetLogin()
+		repo = checkSuite.Repo.GetName()
 	}
-	return pr, nil
+	return pr, owner, repo, nil
 }

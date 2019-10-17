@@ -16,7 +16,6 @@ import (
 	"github.com/google/go-github/v28/github"
 	"github.com/variantdev/go-actions"
 	"github.com/variantdev/go-actions/pkg/cmd"
-	"golang.org/x/oauth2"
 )
 
 type Command struct {
@@ -462,21 +461,6 @@ func (c *Command) CreateCheckSuite(pre *github.PullRequestEvent) (*github.CheckS
 }
 
 func (c *Command) instTokenClient() (*github.Client, error) {
-	return instTokenClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
+	return actions.CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
 }
 
-// instTokenClient uses an installation token to authenticate to the Github API.
-func instTokenClient(instToken, baseURL, uploadURL string) (*github.Client, error) {
-	// For installation tokens, Github uses a different token type ("token" instead of "bearer")
-	tokenType := "token"
-	if os.Getenv("GITHUB_TOKEN_TYPE") != "" {
-		tokenType = os.Getenv("GITHUB_TOKEN_TYPE")
-	}
-	t := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: instToken, TokenType: tokenType})
-	c := context.Background()
-	tc := oauth2.NewClient(c, t)
-	if baseURL != "" {
-		return github.NewEnterpriseClient(baseURL, uploadURL, tc)
-	}
-	return github.NewClient(tc), nil
-}
