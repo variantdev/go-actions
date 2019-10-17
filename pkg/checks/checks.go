@@ -16,7 +16,6 @@ import (
 	"github.com/google/go-github/v28/github"
 	"github.com/variantdev/go-actions"
 	"github.com/variantdev/go-actions/pkg/cmd"
-	"golang.org/x/oauth2"
 )
 
 type Command struct {
@@ -24,8 +23,11 @@ type Command struct {
 	createRuns         cmd.StringSlice
 
 	checkName string
-	cmd       string
-	args      []string
+
+	statusContext string
+
+	cmd  string
+	args []string
 }
 
 func New() *Command {
@@ -40,6 +42,7 @@ func (c *Command) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.UploadURL, "github-upload-url", "", "")
 	fs.Var(&c.createRuns, "create-run", "Name of CheckRun to be created on CheckSuite `(re)requested` event. Specify multiple times to create two or more runs")
 	fs.StringVar(&c.checkName, "run", "", "CheckRun's name to be updated after the command in run")
+	fs.StringVar(&c.statusContext, "status-context", "", "Commit status' context. If not empty, `checks` creates a status with this contecxt")
 }
 
 func (c *Command) Run(args []string) error {
@@ -129,13 +132,13 @@ func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.Chec
 }
 
 type CreateCheckRunOptions struct {
-	Name         string                   `json:"name"`                  // The name of the check (e.g., "code-coverage"). (Required.)
-	HeadBranch   string                   `json:"head_branch"`           // The name of the branch to perform a check against. (Required.)
-	HeadSHA      string                   `json:"head_sha"`              // The SHA of the commit. (Required.)
-	DetailsURL   *string                  `json:"details_url,omitempty"` // The URL of the integrator's site that has the full details of the check. (Optional.)
-	ExternalID   *string                  `json:"external_id,omitempty"` // A reference for the run on the integrator's system. (Optional.)
-	Status       *string                  `json:"status,omitempty"`      // The current status. Can be one of "queued", "in_progress", or "completed". Default: "queued". (Optional.)
-	Conclusion   *string                  `json:"conclusion,omitempty"`  // Can be one of "success", "failure", "neutral", "cancelled", "timed_out", or "action_required". (Optional. Required if you provide a status of "completed".)
+	Name       string  `json:"name"`                  // The name of the check (e.g., "code-coverage"). (Required.)
+	HeadBranch string  `json:"head_branch"`           // The name of the branch to perform a check against. (Required.)
+	HeadSHA    string  `json:"head_sha"`              // The SHA of the commit. (Required.)
+	DetailsURL *string `json:"details_url,omitempty"` // The URL of the integrator's site that has the full details of the check. (Optional.)
+	ExternalID *string `json:"external_id,omitempty"` // A reference for the run on the integrator's system. (Optional.)
+	Status     *string `json:"status,omitempty"`      // The current status. Can be one of "queued", "in_progress", or "completed". Default: "queued". (Optional.)
+	Conclusion *string `json:"conclusion,omitempty"`  // Can be one of "success", "failure", "neutral", "cancelled", "timed_out", or "action_required". (Optional. Required if you provide a status of "completed".)
 	// Does this really work?
 	CheckSuiteID *int64                   `json:"check_suite_id,omitempty`
 	StartedAt    *github.Timestamp        `json:"started_at,omitempty"`   // The time that the check run began. (Optional.)
@@ -145,7 +148,7 @@ type CreateCheckRunOptions struct {
 }
 
 func (c *Command) CreateCheckRun(client *github.Client, ctx context.Context, owner, repo string, opt CreateCheckRunOptions) (*github.CheckRun, *github.Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/check-runs", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/check-suites/%v/check-runs", owner, repo, *opt.CheckSuiteID)
 	req, err := client.NewRequest("POST", u, opt)
 	if err != nil {
 		return nil, nil, err
@@ -168,47 +171,84 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 		return err
 	}
 
-	suite, err := c.EnsureCheckSuite(pre)
-	if err != nil {
-		return err
-	}
+	log.Printf("Running command: %q", c.cmd)
 
-	cr := Run{
-		name:    c.checkName,
-		owner:   suite.Repository.Owner.GetLogin(),
-		repo:    suite.Repository.GetName(),
-		suiteId: suite.GetID(),
-	}
+	summary, text, runErr := c.runIt()
 
-	checkRunsList, _, err := client.Checks.ListCheckRunsCheckSuite(context.Background(), cr.owner, cr.repo, cr.suiteId, &github.ListCheckRunsOptions{
-		CheckName: github.String(c.checkName),
-		// TODO
-		//ListOptions: github.ListOptions{},
-	})
+	owner := pre.Repo.Owner.GetLogin()
+	repo := pre.Repo.GetName()
 
-	var checkRun *github.CheckRun
-	for _, existing := range checkRunsList.CheckRuns {
-		if existing.GetName() == cr.name {
-			checkRun = existing
-		}
-	}
-
-	if checkRun == nil {
-		log.Printf("Creating CheckRun %q", cr.name)
-		created, err := c.createCheckRun(suite, cr)
+	if c.checkName != "" {
+		suite, err := c.EnsureCheckSuite(pre)
 		if err != nil {
 			return err
 		}
-		checkRun = created
+
+		cr := Run{
+			name:    c.checkName,
+			owner:   owner,
+			repo:    repo,
+			suiteId: suite.GetID(),
+		}
+
+		checkRunsList, _, err := client.Checks.ListCheckRunsCheckSuite(context.Background(), cr.owner, cr.repo, cr.suiteId, &github.ListCheckRunsOptions{
+			CheckName: github.String(c.checkName),
+			// TODO
+			//ListOptions: github.ListOptions{},
+		})
+
+		var checkRun *github.CheckRun
+		for _, existing := range checkRunsList.CheckRuns {
+			if existing.GetName() == cr.name {
+				checkRun = existing
+			}
+		}
+
+		if checkRun == nil {
+			log.Printf("Creating CheckRun %q", cr.name)
+			created, err := c.createCheckRun(suite, cr)
+			if err != nil {
+				return err
+			}
+			checkRun = created
+		}
+
+		c.logCheckRun(checkRun)
+
+		log.Printf("Updating CheckRun")
+		if err := c.UpdateCheckRun(owner, repo, checkRun, summary, text, runErr); err != nil {
+			return err
+		}
 	}
 
-	c.logCheckRun(checkRun)
+	if c.statusContext != "" {
+		sha := pre.PullRequest.Head.GetSHA()
+		var state string
+		if runErr != nil {
+			state = "failure"
+		} else {
+			state = "success"
+		}
+		status := &github.RepoStatus{
+			State:       github.String(state),
+			Context:     github.String(c.statusContext),
+			Description: github.String(text),
+		}
+		repoStatus, _, err := client.Repositories.CreateStatus(context.Background(), owner, repo, sha, status)
+		if err != nil {
+			log.Printf("Failed creating status: %v", err)
+		} else {
+			buf := bytes.Buffer{}
+			enc := json.NewEncoder(&buf)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(repoStatus); err != nil {
+				return err
+			}
+			log.Printf("Created repo status:\n%s", buf.String())
+		}
+	}
 
-	log.Printf("Running the commmand for CheckRun %q", cr.name)
-	summary, text, runErr := c.runIt()
-
-	log.Printf("Updating CheckRun")
-	return c.UpdateCheckRun(cr.owner, cr.repo, checkRun, summary, text, runErr)
+	return nil
 }
 
 func (c *Command) logCheckRun(checkRun *github.CheckRun) {
@@ -421,21 +461,6 @@ func (c *Command) CreateCheckSuite(pre *github.PullRequestEvent) (*github.CheckS
 }
 
 func (c *Command) instTokenClient() (*github.Client, error) {
-	return instTokenClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
+	return actions.CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
 }
 
-// instTokenClient uses an installation token to authenticate to the Github API.
-func instTokenClient(instToken, baseURL, uploadURL string) (*github.Client, error) {
-	// For installation tokens, Github uses a different token type ("token" instead of "bearer")
-	tokenType := "token"
-	if os.Getenv("GITHUB_TOKEN_TYPE") != "" {
-		tokenType = os.Getenv("GITHUB_TOKEN_TYPE")
-	}
-	t := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: instToken, TokenType: tokenType})
-	c := context.Background()
-	tc := oauth2.NewClient(c, t)
-	if baseURL != "" {
-		return github.NewEnterpriseClient(baseURL, uploadURL, tc)
-	}
-	return github.NewClient(tc), nil
-}
