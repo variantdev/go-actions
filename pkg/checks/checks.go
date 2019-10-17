@@ -207,6 +207,30 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 	log.Printf("Running the commmand for CheckRun %q", cr.name)
 	summary, text, runErr := c.runIt()
 
+	sha := pre.PullRequest.Head.GetSHA()
+	var state string
+	if runErr != nil {
+		state = "failure"
+	} else {
+		state = "success"
+	}
+	status := &github.RepoStatus{
+		State: github.String(state),
+		Context: github.String("checks/" + c.checkName),
+	}
+	repoStatus, _, err := client.Repositories.CreateStatus(context.Background(), cr.owner, cr.repo, sha, status)
+	if err != nil {
+		log.Printf("Failed creating status: %v", err)
+	} else {
+		buf := bytes.Buffer{}
+		enc := json.NewEncoder(&buf)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(repoStatus); err != nil {
+			return err
+		}
+		log.Printf("Created repo status:\n%s", buf.String())
+	}
+
 	log.Printf("Updating CheckRun")
 	return c.UpdateCheckRun(cr.owner, cr.repo, checkRun, summary, text, runErr)
 }
