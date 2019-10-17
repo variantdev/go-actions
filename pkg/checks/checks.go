@@ -342,7 +342,8 @@ func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, er
 	if suites.GetTotal() == 1 {
 		return suites.CheckSuites[0], nil
 	} else if suites.GetTotal() > 1 {
-		return nil, fmt.Errorf("too many suites exist(%d). maybe a bug?", suites.GetTotal())
+		log.Printf("too many suites exist(%d). maybe a bug? Returning the first item anyway", suites.GetTotal())
+		return suites.CheckSuites[0], nil
 	}
 
 	return nil, nil
