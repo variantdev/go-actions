@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v28/github"
 	"github.com/variantdev/go-actions"
@@ -85,7 +86,7 @@ type Run struct {
 func (c *Command) CreateCheckRunsForSuite(e *github.CheckSuite) error {
 	owner, repo := e.Repository.GetOwner().GetLogin(), e.Repository.GetName()
 	for _, name := range c.createRuns {
-		_, err := c.createCheckRun(Run{owner: owner, repo: repo, name: name})
+		_, err := c.createCheckRun(e, Run{owner: owner, repo: repo, name: name})
 		if err != nil {
 			return err
 		}
@@ -93,7 +94,7 @@ func (c *Command) CreateCheckRunsForSuite(e *github.CheckSuite) error {
 	return nil
 }
 
-func (c *Command) createCheckRun(cr Run) (*github.CheckRun, error) {
+func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.CheckRun, error) {
 	client, err := c.instTokenClient()
 	if err != nil {
 		return nil, err
@@ -103,8 +104,11 @@ func (c *Command) createCheckRun(cr Run) (*github.CheckRun, error) {
 		context.Background(),
 		cr.owner, cr.repo,
 		github.CreateCheckRunOptions{
-			Name:   cr.name,
-			Status: github.String("queued"),
+			Name:       cr.name,
+			HeadBranch: suite.GetHeadBranch(),
+			HeadSHA:    suite.GetHeadSHA(),
+			StartedAt:  &github.Timestamp{Time: time.Now()},
+			Status:     github.String("queued"),
 		})
 
 	return created, err
@@ -142,7 +146,7 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 
 	if runToUpdate == nil {
 		log.Printf("Creating CheckRun %q", cr.name)
-		created, err := c.createCheckRun(cr)
+		created, err := c.createCheckRun(suite, cr)
 		if err != nil {
 			return err
 		}
@@ -187,9 +191,9 @@ func (c *Command) UpdateCheckRun(checkRun *github.CheckRun, summary, text string
 		//HeadSHA:     nil,
 		//DetailsURL:  nil,
 		//ExternalID:  nil,
-		Status:     github.String("completed"),
-		Conclusion: github.String(conclusion),
-		//CompletedAt: nil,
+		Status:      github.String("completed"),
+		Conclusion:  github.String(conclusion),
+		CompletedAt: &github.Timestamp{Time: time.Now()},
 		// See https://developer.github.com/v3/checks/runs/#output-object-1
 		Output: &github.CheckRunOutput{
 			Title:   github.String(c.cmd),
