@@ -24,9 +24,9 @@ type Command struct {
 	BaseURL, UploadURL string
 	createRuns         cmd.StringSlice
 
-	runName string
-	cmd     string
-	args    []string
+	checkName string
+	cmd       string
+	args      []string
 }
 
 func New() *Command {
@@ -40,7 +40,7 @@ func (c *Command) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.BaseURL, "github-base-url", "", "")
 	fs.StringVar(&c.UploadURL, "github-upload-url", "", "")
 	fs.Var(&c.createRuns, "create-run", "Name of CheckRun to be created on CheckSuite `(re)requested` event. Specify multiple times to create two or more runs")
-	fs.StringVar(&c.runName, "run", "", "CheckRun's name to be updated after the command in run")
+	fs.StringVar(&c.checkName, "run", "", "CheckRun's name to be updated after the command in run")
 }
 
 func (c *Command) Run(args []string) error {
@@ -126,13 +126,14 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 	}
 
 	cr := Run{
-		name:    c.runName,
+		name:    c.checkName,
 		owner:   suite.Repository.Owner.GetLogin(),
 		repo:    suite.Repository.GetName(),
 		suiteId: suite.GetID(),
 	}
 
 	checkRunsList, _, err := client.Checks.ListCheckRunsCheckSuite(context.Background(), cr.owner, cr.repo, cr.suiteId, &github.ListCheckRunsOptions{
+		CheckName: github.String(c.checkName),
 		// TODO
 		//ListOptions: github.ListOptions{},
 	})
@@ -167,8 +168,8 @@ func (c *Command) ExecCheckRun(e *github.CheckRunEvent) error {
 }
 
 func (c *Command) UpdateCheckRun(checkRun *github.CheckRun, summary, text string, runErr error) error {
-	if checkRun.GetName() != c.runName {
-		return fmt.Errorf("unexpected run name: expected %q, got %q", c.runName, checkRun.GetName())
+	if checkRun.GetName() != c.checkName {
+		return fmt.Errorf("unexpected run name: expected %q, got %q", c.checkName, checkRun.GetName())
 	}
 
 	client, err := c.instTokenClient()
@@ -231,7 +232,9 @@ func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, er
 
 	sha := pre.PullRequest.Head.GetSHA()
 
-	suites, res, err := client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{})
+	suites, res, err := client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{
+		CheckName: github.String(c.checkName),
+	})
 	if err != nil {
 		log.Printf("Error listing suites: %v", err)
 	} else {
@@ -256,21 +259,10 @@ func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, er
 		}
 	}
 
-	var cs *github.CheckSuite
-
-	for _, suite := range suites.CheckSuites {
-		if suite.GetStatus() != "in_progress" {
-			continue
-		}
-
-		// We already have a CheckSuite created by GitHub Actions
-		// Try reusing it to avoid issues(like check_suite rerequest doesn't trigger any workflow
-		cs = suite
-
-		log.Printf("check suite already exist. nothing to do")
-
-		//return c.RunOrRerunChecksForSuite(suite.Repository.Owner.GetLogin(), suite.Repository.GetName())
-		return cs, nil
+	if suites.GetTotal() == 1 {
+		return suites.CheckSuites[0], nil
+	} else if suites.GetTotal() > 1 {
+		return nil, fmt.Errorf("too many suites exist(%d). maybe a bug?", suites.Total)
 	}
 
 	return nil, fmt.Errorf("no eligible check suite found")
