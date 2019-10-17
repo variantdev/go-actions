@@ -68,13 +68,7 @@ func (c *Command) HandleEvent(payload interface{}) error {
 			}
 		}
 	case *github.CheckSuiteEvent:
-		owner, repo := e.GetRepo().GetOwner().GetLogin(), e.GetRepo().GetName()
-		for _, name := range c.createRuns {
-			_, err := c.createRun(Run{owner: owner, repo: repo, name: name})
-			if err != nil {
-				return err
-			}
-		}
+		return c.RunOrRerunChecksForSuite(e.CheckSuite)
 	case *github.CheckRunEvent:
 		return c.ExecCheckRun(e)
 	}
@@ -83,20 +77,44 @@ func (c *Command) HandleEvent(payload interface{}) error {
 
 type Run struct {
 	owner, repo, name string
+	suiteId int64
 }
 
-func (c *Command) createRun(cr Run) (string, error) {
+func (c *Command) RunOrRerunChecksForSuite(e *github.CheckSuite) error {
+	owner, repo := e.Repository.GetOwner().GetLogin(), e.Repository.GetName()
+	for _, name := range c.createRuns {
+		_, err := c.runOrRerunCheck(Run{owner: owner, repo: repo, name: name, suiteId: e.GetID()})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Command) runOrRerunCheck(cr Run) (string, error) {
 	client, err := c.instTokenClient()
 	if err != nil {
 		return "", err
+	}
+
+	checkRunsList, _, err := client.Checks.ListCheckRunsCheckSuite(context.Background(), cr.owner, cr.repo, cr.suiteId, &github.ListCheckRunsOptions{
+		// TODO
+		//ListOptions: github.ListOptions{},
+	})
+
+	for _, run := range checkRunsList.CheckRuns {
+		if run.GetName() == cr.name {
+			client.Checks.Che
+			return "", err
+		}
 	}
 
 	_, res, err := client.Checks.CreateCheckRun(
 		context.Background(),
 		cr.owner, cr.repo,
 		github.CreateCheckRunOptions{
-			Name: cr.name,
-			Status:      github.String("queued"),
+			Name:   cr.name,
+			Status: github.String("queued"),
 		})
 
 	body, _ := ioutil.ReadAll(res.Body)
@@ -132,14 +150,14 @@ func (c *Command) ExecCheckRun(e *github.CheckRunEvent) error {
 		//HeadSHA:     nil,
 		//DetailsURL:  nil,
 		//ExternalID:  nil,
-		Status:      github.String("completed"),
-		Conclusion:  github.String(conclusion),
+		Status:     github.String("completed"),
+		Conclusion: github.String(conclusion),
 		//CompletedAt: nil,
 		// See https://developer.github.com/v3/checks/runs/#output-object-1
-		Output:      &github.CheckRunOutput{
-			Title:            github.String(c.cmd),
-			Summary:          github.String(fmt.Sprintf("```\n%s\n```", stdout)),
-			Text:             github.String(fmt.Sprintf("```\n%s\n```", fullout)),
+		Output: &github.CheckRunOutput{
+			Title:   github.String(c.cmd),
+			Summary: github.String(fmt.Sprintf("```\n%s\n```", stdout)),
+			Text:    github.String(fmt.Sprintf("```\n%s\n```", fullout)),
 		},
 		//Actions:     nil,
 	})
@@ -207,7 +225,7 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 		if jsonErr != nil {
 			return jsonErr
 		}
-		suitesJson :=  buf.String()
+		suitesJson := buf.String()
 		log.Printf("Listing suites: %s", suitesJson)
 	}
 	if res != nil {
@@ -221,13 +239,30 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 		}
 	}
 
+	var cs *github.CheckSuite
+
+	for _, suite := range suites.CheckSuites {
+		if suite.GetStatus() != "in_progress" {
+			continue
+		}
+
+		// We already have a CheckSuite created by GitHub Actions
+		// Try reusing it to avoid issues(like check_suite rerequest doesn't trigger any workflow
+		cs = suite
+
+		log.Printf("check suite already exist. nothing to do")
+
+		//return c.RunOrRerunChecksForSuite(suite.Repository.Owner.GetLogin(), suite.Repository.GetName())
+		return nil
+	}
+
 	csOpts := github.CreateCheckSuiteOptions{
 		HeadSHA:    sha,
 		HeadBranch: &ref,
 	}
 	log.Printf("requesting check suite run for %s/%s, SHA: %s", owner, repo, csOpts.HeadSHA)
 
-	cs, res, err := client.Checks.CreateCheckSuite(context.Background(), owner, repo, csOpts)
+	cs, res, err = client.Checks.CreateCheckSuite(context.Background(), owner, repo, csOpts)
 	if err != nil {
 		log.Printf("Failed to create check suite: %s", err)
 
@@ -269,7 +304,7 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 		if jsonErr != nil {
 			return jsonErr
 		}
-		csJson :=  buf.String()
+		csJson := buf.String()
 		log.Printf("Created suite: %s", csJson)
 	}
 
