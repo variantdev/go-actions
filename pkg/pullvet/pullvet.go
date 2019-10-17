@@ -139,7 +139,7 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 
 	allNoteMatches := regex.FindAllStringSubmatch(normalizeNewlines(body), -1)
 	for _, m := range allNoteMatches {
-		noteTitles[m[0]] = struct{}{}
+		noteTitles[m[1]] = struct{}{}
 	}
 
 	for _, requiredNoteTitle := range c.noteTitles {
