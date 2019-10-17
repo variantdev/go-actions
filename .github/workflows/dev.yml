@@ -40,3 +40,5 @@ jobs:
     - run: |
         make build
         bin/actions checks -create-run devrun -run devrun -- bin/actions pullvet -require-any -label releasenote/none -note releasenote
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
