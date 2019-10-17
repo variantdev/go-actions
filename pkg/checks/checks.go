@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -216,18 +215,7 @@ func (c *Command) UpdateCheckRun(owner, repo string, checkRun *github.CheckRun, 
 }
 
 func (c *Command) runIt() (string, string, error) {
-	return run(c.cmd, c.args)
-}
-
-func run(cmd string, args []string) (string, string, error) {
-	c := exec.Command(cmd, args...)
-	//c.Stdin = os.Stdin
-	//var out bytes.Buffer
-	//cmd.Stdout = &out
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	err := c.Run()
-	return "mysummary", "mytext", err
+	return runCmd(c.cmd, c.args)
 }
 
 func (c *Command) logResponseAndError(suites *github.ListCheckSuiteResults, res *github.Response, err error) error {
@@ -349,17 +337,6 @@ func (c *Command) CreateCheckSuite(pre *github.PullRequestEvent) (*github.CheckS
 		return nil, err
 	}
 
-	if res != nil {
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Printf("error reading create check suite response: %v", err)
-		}
-		res.Body.Close()
-		if body != nil {
-			log.Printf("CreateCheckSuite: %s", string(body))
-		}
-	}
-
 	if err == nil {
 		buf := bytes.Buffer{}
 		enc := json.NewEncoder(&buf)
@@ -371,21 +348,6 @@ func (c *Command) CreateCheckSuite(pre *github.PullRequestEvent) (*github.CheckS
 		csJson := buf.String()
 		log.Printf("Created suite: %s", csJson)
 	}
-
-	//log.Printf("Created check suite for %s with ID %d. Triggering :rerequested", ref, cs.GetID())
-	//// It appears that merely creating the check suite does not trigger a check_suite:request.
-	//// So we manually trigger a rerequest.
-	//res, err = client.Checks.ReRequestCheckSuite(context.Background(), owner, repo, cs.GetID())
-	//
-	//if res != nil {
-	//	read, err := ioutil.ReadAll(res.Body)
-	//	if err != nil {
-	//		log.Printf("Failed reading rerequest response: %v", err)
-	//	}
-	//	if read != nil {
-	//		log.Printf("Rerequest response: %s", string(read))
-	//	}
-	//}
 
 	return cs, err
 }
