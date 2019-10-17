@@ -1,0 +1,129 @@
+name: dump-event
+
+# See https://help.github.com/en/articles/events-that-trigger-workflows#webhook-events
+on:
+  check_run:
+    types: 
+    - created
+    - rerequested
+    - completed
+    - requested_action
+  check_suite:
+    types:
+    - completed
+    - requested
+    - rerequested
+# says `commit_comment is not a valid event name`. what's the correct name?
+#  commit_comment: {}
+  deployment: {}
+  deployment_status: {}
+  issue_comment:
+    types:
+    - created
+    - edited
+    - deleted
+  issues:
+    types:
+    - opened
+    - edited
+    - deleted
+    - transferred
+    - pinned
+    - unpinned
+    - closed
+    - reopened
+    - assigned
+    - unassigned
+    - labeled
+    - unlabeled
+    - locked
+    - unlocked
+    - milestoned
+    - demilestoned
+  label:
+    types:
+    - created
+    - edited
+    - deleted
+  member:
+    types:
+    - added
+    - edited
+    - deleted
+  milestone:
+    types:
+    - created
+    - closed
+    - opened
+    - edited
+    - deleted
+  project:
+    types:
+    - created
+    - updated
+    - closed
+    - reopened
+    - edited
+    - deleted
+  project_card:
+    types:
+    - created
+    - moved
+    - converted
+    - edited
+    - deleted
+  project_column:
+    types:
+    - created
+    - updated
+    - moved
+    - deleted
+  pull_request:
+    types:
+    - assigned
+    - unassigned
+    - labeled
+    - unlabeled
+    - opened
+    - edited
+    - closed
+    - reopened
+    - synchronize
+    - ready_for_review
+    - locked
+    - unlocked
+    - review_requested
+    - review_request_removed
+  pull_request_review:
+    types:
+    - submitted
+    - edited
+    - dismissed
+  pull_request_review_comment:
+    types:
+    - created
+    - edited
+    - deleted
+  #push
+  release:
+    types:
+    - published,
+    - unpublished
+    - created
+    - edited
+    - deleted
+    - prereleased
+  #status
+  #watch
+
+jobs:
+  run:
+    name: dump
+    runs-on: ubuntu-latest
+    steps:
+    - run: |
+        echo GITHUB_ACTION: $GITHUB_ACTION
+        echo GITHUB_WORKFLOW: $GITHUB_WORKFLOW
+        echo GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME
+        echo GITHUB_EVENT_PATH: $GITHUB_EVENT_PATH
+        cat $GITHUB_EVENT_PATH
