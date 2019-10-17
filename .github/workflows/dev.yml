@@ -40,6 +40,7 @@ jobs:
         go-version: '1.12.7'
     - run: |
         make build
+    - run: |
         bin/actions checks -create-run devrun -run devrun -- bin/actions pullvet -require-any -label releasenote/none -note releasenote
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
