@@ -2,12 +2,13 @@ package actions
 
 import (
 	"fmt"
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v28/github"
 	"io/ioutil"
 	"os"
 )
 
 func EventPath() string {
+	// See https://help.github.com/en/articles/virtual-environments-for-github-actions#default-environment-variables
 	path := os.Getenv("GITHUB_EVENT_PATH")
 	if path == "" {
 		fmt.Fprintf(os.Stderr, "GITHUB_EVENT_PATH not set. Please run this command on GitHub Actions")
@@ -16,12 +17,26 @@ func EventPath() string {
 	return path
 }
 
+func EventName() string {
+	// See https://help.github.com/en/articles/virtual-environments-for-github-actions#default-environment-variables
+	name := os.Getenv("GITHUB_EVENT_NAME")
+	if name == "" {
+		fmt.Fprintf(os.Stderr, "GITHUB_EVENT_NAME not set. Please run this command on GitHub Actions")
+		os.Exit(1)
+	}
+	return name
+}
+
 func Event() []byte {
 	payload, err := ioutil.ReadFile(EventPath())
 	if err != nil {
 		panic(err)
 	}
 	return payload
+}
+
+func ParseEvent() (interface{}, error) {
+	return github.ParseWebHook(EventName(), Event())
 }
 
 func PullRequestEvent() (*github.PullRequestEvent, error) {

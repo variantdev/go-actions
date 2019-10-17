@@ -1,7 +1,7 @@
 package pullvet
 
 import (
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v28/github"
 	"reflect"
 	"regexp"
 	"strings"
@@ -112,7 +112,7 @@ func TestRun(t *testing.T) {
 	for i := range testcases {
 		tc := testcases[i]
 
-		err := tc.cmd.Run(tc.input)
+		err := tc.cmd.HandlePullRequest(tc.input)
 
 		if tc.expected != "" && !strings.Contains(err.Error(), tc.expected) {
 			t.Errorf("unexpected error: expected=%q, got=%q", tc.expected, err)

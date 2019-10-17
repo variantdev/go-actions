@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/variantdev/go-actions/pkg/pullvet"
+	"github.com/variantdev/go-actions/pkg/checks"
 )
 
 // pullvet checks for the existence of the specified pull request label(s)  exists with a non-zero status
@@ -14,15 +14,15 @@ import (
 // This should be useful for compliance purpose. that is, it will help preventing any  pr from being merged when it misses required labels.
 // when run on GitHub Actions v2
 func main() {
-	cmd := pullvet.New()
+	cmd := checks.New()
 
 	fs := flag.CommandLine
-	fs.Init("pullvet", flag.ExitOnError)
+	fs.Init("checks", flag.ExitOnError)
 	cmd.AddFlags(fs)
 
 	flag.Parse()
 
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Run(os.Args); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}

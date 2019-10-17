@@ -3,7 +3,8 @@ package pullvet
 import (
 	"flag"
 	"fmt"
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v28/github"
+	"github.com/variantdev/go-actions"
 	"github.com/variantdev/go-actions/pkg/cmd"
 	"os"
 	"regexp"
@@ -25,7 +26,7 @@ type Command struct {
 	requireAll   bool
 }
 
-func NewCommand() *Command {
+func New() *Command {
 	return &Command{
 	}
 }
@@ -40,7 +41,15 @@ func (c *Command) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.noteRegex, "note-regex", defaultNoteRegex, "Regexp pattern of each note(including the title and the body). Default: "+defaultNoteRegex)
 }
 
-func (c *Command) Run(pullRequest *github.PullRequest) error {
+func (c *Command) Run() error {
+	pr, err := actions.PullRequest()
+	if err != nil {
+		return err
+	}
+	return c.HandlePullRequest(pr)
+}
+
+func (c *Command) HandlePullRequest(pullRequest *github.PullRequest) error {
 	var labels []string
 	labelSet := map[string]struct{}{}
 
