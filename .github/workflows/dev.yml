@@ -2,17 +2,17 @@ name: dev
 
 # See https://help.github.com/en/articles/events-that-trigger-workflows#webhook-events
 on:
-  check_run:
-    types:
-    - created
-    - rerequested
-    - completed
-    - requested_action
-  check_suite:
-    types:
-    - completed
-    - requested
-    - rerequested
+#  check_run:
+#    types:
+#    - created
+#    - rerequested
+#    - completed
+#    - requested_action
+#  check_suite:
+#    types:
+#    - completed
+#    - requested
+#    - rerequested
   pull_request:
     types:
     - assigned
@@ -40,6 +40,13 @@ jobs:
         go-version: '1.12.7'
     - run: |
         make build
-        bin/actions checks -create-run devrun -run devrun -- bin/actions pullvet -require-any -label releasenote/none -note releasenote
+    - name: dev1
+      run: |
+        bin/actions checks -run dev1 -- bin/actions pullvet -require-any -label dev1
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+    - name: dev2-or-dev3
+      run: |
+        bin/actions checks -run dev2 -- bin/actions pullvet -require-any -label dev2 -label dev3
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

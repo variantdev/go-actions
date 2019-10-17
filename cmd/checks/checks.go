@@ -22,7 +22,7 @@ func main() {
 
 	flag.Parse()
 
-	if err := cmd.Run(os.Args); err != nil {
+	if err := cmd.Run(fs.Args()); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}

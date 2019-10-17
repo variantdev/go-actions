@@ -65,19 +65,25 @@ func CheckSuiteEvent() (*github.CheckSuiteEvent, error) {
 
 func PullRequest() (*github.PullRequest, error) {
 	var pr *github.PullRequest
-	checkSuite, err := CheckSuiteEvent()
-	if err != nil {
+	switch EventName() {
+	case "pull_request":
+		pull, err := PullRequestEvent()
+		if err != nil {
+			return nil, err
+		}
+		pr = pull.PullRequest
+	case "check_run":
 		checkRun, err := CheckRunEvent()
 		if err != nil {
-			pull, err := PullRequestEvent()
-			if err != nil {
-				return nil, err
-			}
-			pr = pull.PullRequest
+			return nil, err
 		} else {
 			pr = checkRun.CheckRun.PullRequests[0]
 		}
-	} else {
+	case "check_suite":
+		checkSuite, err := CheckSuiteEvent()
+		if err != nil {
+			return nil, err
+		}
 		pr = checkSuite.CheckSuite.PullRequests[0]
 	}
 	return pr, nil
