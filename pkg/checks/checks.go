@@ -190,6 +190,15 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 
 	ownerRepo := strings.Split(repoFullname, "/")
 	owner, repo := ownerRepo[0], ownerRepo[1]
+
+	_, res, err := client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{})
+	if err != nil {
+		log.Printf("Error listing suites: %v", err)
+	}
+	if res != nil {
+		log.Printf("Listing suites: %v", *res)
+	}
+
 	csOpts := github.CreateCheckSuiteOptions{
 		HeadSHA:    sha,
 		HeadBranch: &ref,
@@ -217,6 +226,10 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 			log.Printf("error fetching check suites: %s", err)
 		}
 		return nil
+	}
+
+	if res != nil {
+		log.Printf("CreateCheckSuite: %v", *res)
 	}
 
 	log.Printf("Created check suite for %s with ID %d. Triggering :rerequested", ref, cs.GetID())
