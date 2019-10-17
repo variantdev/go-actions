@@ -60,3 +60,18 @@ jobs:
         bin/actions checks -run dev2 -- bin/actions pullvet -require-any -label dev2 -label dev3
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+  ensure-dev3:
+    runs-on: ubuntu-latest
+    if: startsWith(github.repository, 'variantdev/')
+    steps:
+    - uses: actions/checkout@master
+    - uses: actions/setup-go@v1
+      with:
+        go-version: '1.12.7'
+    - run: |
+        make build
+    - name: dev3
+      run: |
+        bin/actions checks -status-context checks/dev3 -- bin/actions pullvet -require-any -label dev3
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
