@@ -62,12 +62,6 @@ func (c *Command) Run(args []string) error {
 func (c *Command) HandleEvent(payload interface{}) error {
 	switch e := payload.(type) {
 	case *github.PullRequestEvent:
-		action := *e.Action
-		if action == "opened" || action == "synchronize" || action == "reopened" {
-			if err := c.EnsureCheckSuiteInProgress(e); err != nil {
-				return err
-			}
-		}
 		return c.EnsureCheckRun(e)
 	case *github.CheckSuiteEvent:
 		return c.CreateCheckRunsForSuite(e.CheckSuite)
@@ -120,7 +114,7 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 		return err
 	}
 
-	suite, err := c.getSuite(pre)
+	suite, err := c.EnsureCheckSuite(pre)
 	if err != nil {
 		return err
 	}
@@ -138,27 +132,40 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 		//ListOptions: github.ListOptions{},
 	})
 
-	var runToUpdate *github.CheckRun
-	for _, run := range checkRunsList.CheckRuns {
-		if run.GetName() == cr.name {
-			runToUpdate = run
+	var checkRun *github.CheckRun
+	for _, existing := range checkRunsList.CheckRuns {
+		if existing.GetName() == cr.name {
+			checkRun = existing
 		}
 	}
 
-	if runToUpdate == nil {
+	if checkRun == nil {
 		log.Printf("Creating CheckRun %q", cr.name)
 		created, err := c.createCheckRun(suite, cr)
 		if err != nil {
 			return err
 		}
-		runToUpdate = created
+		checkRun = created
 	}
 
 	log.Printf("Running the commmand for CheckRun %q", cr.name)
 	summary, text, runErr := c.runIt()
 
 	log.Printf("Updating CheckRun")
-	return c.UpdateCheckRun(runToUpdate, summary, text, runErr)
+	return c.UpdateCheckRun(checkRun, summary, text, runErr)
+}
+
+func (c *Command) EnsureCheckSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
+	suite, err := c.getSuite(pre)
+	if err != nil {
+		return nil, err
+	}
+
+	if suite == nil {
+		return c.CreateCheckSuite(pre)
+	}
+
+	return suite, nil
 }
 
 func (c *Command) ExecCheckRun(e *github.CheckRunEvent) error {
@@ -265,10 +272,10 @@ func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, er
 		return nil, fmt.Errorf("too many suites exist(%d). maybe a bug?", suites.Total)
 	}
 
-	return nil, fmt.Errorf("no eligible check suite found")
+	return nil, nil
 }
 
-// EnsureCheckSuiteInProgress creates a new check suite and rerequests it based on a pull request.
+// CreateCheckSuite creates a new check suite and rerequests it based on a pull request.
 //
 // The Check Suite webhook events are normally only triggered on `push` events. This function acts as an
 // adapter to take a PR and trigger a check suite.
@@ -282,23 +289,18 @@ func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, er
 // 		  not actually trigger a check_suite:requested webhook event
 //		- if failure, check to see if we already have a check suite object, and merely run the rerequest
 //		  on that check suite.
-func (c *Command) EnsureCheckSuiteInProgress(pre *github.PullRequestEvent) error {
+func (c *Command) CreateCheckSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
 	repoFullname := pre.Repo.GetFullName()
 	ref := fmt.Sprintf("refs/pull/%d/head", pre.PullRequest.GetNumber())
 	sha := pre.PullRequest.Head.GetSHA()
 
 	client, err := c.instTokenClient()
 	if err != nil {
-		return fmt.Errorf("Failed to create a new installation token client: %s", err)
+		return nil, fmt.Errorf("Failed to create a new installation token client: %s", err)
 	}
 
 	ownerRepo := strings.Split(repoFullname, "/")
 	owner, repo := ownerRepo[0], ownerRepo[1]
-
-	cs, err := c.getSuite(pre)
-	if cs != nil {
-		return nil
-	}
 
 	csOpts := github.CreateCheckSuiteOptions{
 		HeadSHA:    sha,
@@ -312,7 +314,7 @@ func (c *Command) EnsureCheckSuiteInProgress(pre *github.PullRequestEvent) error
 
 		// 422 means the suite already exists.
 		if res.StatusCode != 422 {
-			return errors.New("could not create check suite")
+			return nil, errors.New("could not create check suite")
 		}
 
 		log.Println("rerunning the last suite")
@@ -326,7 +328,7 @@ func (c *Command) EnsureCheckSuiteInProgress(pre *github.PullRequestEvent) error
 		} else {
 			log.Printf("error fetching check suites: %s", err)
 		}
-		return nil
+		return nil, err
 	}
 
 	if res != nil {
@@ -346,28 +348,28 @@ func (c *Command) EnsureCheckSuiteInProgress(pre *github.PullRequestEvent) error
 		enc.SetIndent("", "  ")
 		jsonErr := enc.Encode(cs)
 		if jsonErr != nil {
-			return jsonErr
+			return nil, jsonErr
 		}
 		csJson := buf.String()
 		log.Printf("Created suite: %s", csJson)
 	}
 
-	log.Printf("Created check suite for %s with ID %d. Triggering :rerequested", ref, cs.GetID())
-	// It appears that merely creating the check suite does not trigger a check_suite:request.
-	// So we manually trigger a rerequest.
-	res, err = client.Checks.ReRequestCheckSuite(context.Background(), owner, repo, cs.GetID())
+	//log.Printf("Created check suite for %s with ID %d. Triggering :rerequested", ref, cs.GetID())
+	//// It appears that merely creating the check suite does not trigger a check_suite:request.
+	//// So we manually trigger a rerequest.
+	//res, err = client.Checks.ReRequestCheckSuite(context.Background(), owner, repo, cs.GetID())
+	//
+	//if res != nil {
+	//	read, err := ioutil.ReadAll(res.Body)
+	//	if err != nil {
+	//		log.Printf("Failed reading rerequest response: %v", err)
+	//	}
+	//	if read != nil {
+	//		log.Printf("Rerequest response: %s", string(read))
+	//	}
+	//}
 
-	if res != nil {
-		read, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Printf("Failed reading rerequest response: %v", err)
-		}
-		if read != nil {
-			log.Printf("Rerequest response: %s", string(read))
-		}
-	}
-
-	return err
+	return cs, err
 }
 
 func (c *Command) instTokenClient() (*github.Client, error) {
