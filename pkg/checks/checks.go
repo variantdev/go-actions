@@ -201,10 +201,12 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 	if res != nil {
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			return err
+			log.Printf("Error reading suites response: %v", err)
 		}
 		res.Body.Close()
-		log.Printf("Listing suites: %s", body)
+		if body != nil {
+			log.Printf("Listing suites: %s", string(body))
+		}
 	}
 
 	csOpts := github.CreateCheckSuiteOptions{
@@ -239,10 +241,12 @@ func (c *Command) RequestCheckSuite(pre *github.PullRequestEvent) error {
 	if res != nil {
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			return err
+			log.Printf("error reading create check suite response: %v", err)
 		}
 		res.Body.Close()
-		log.Printf("CreateCheckSuite: %s", string(body))
+		if body != nil {
+			log.Printf("CreateCheckSuite: %s", string(body))
+		}
 	}
 
 	log.Printf("Created check suite for %s with ID %d. Triggering :rerequested", ref, cs.GetID())
