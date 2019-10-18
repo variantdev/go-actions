@@ -32,6 +32,24 @@ Available Commands:
 Use "actions [command] --help" for more information about a command
 ```
 
+### Examples
+
+#### Regexp-match pull request label(s)
+
+Set pull request status named `label` to green only when it has a "size" label like "size/s":
+
+```
+actions exec -status-context label -- actions pullvet -label-match 'size/.+'
+```
+
+#### Regexp-match pull request milestone or alternative label 
+
+Set pull request status named `milestone` to green only when it has a milestone titled like "test-v1", or a label "milestone/none" to express there's exactly no milestone associated:
+
+```
+actions exec -status-context milestone -- actions pullvet -require-any -milestone-match 'test-v.+' label milestone/none
+```
+
 ### GitHub Actions
 
 Provide `GITHUB_TOKEN` as you usually do on GitHub Actions:
