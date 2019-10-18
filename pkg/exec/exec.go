@@ -28,6 +28,11 @@ type Command struct {
 	args []string
 }
 
+type Target struct {
+	Owner, Repo string
+	PullRequest *github.PullRequest
+}
+
 func New() *Command {
 	return &Command{
 		BaseURL:   "",
@@ -62,8 +67,26 @@ func (c *Command) Run(args []string) error {
 
 func (c *Command) HandleEvent(payload interface{}) error {
 	switch e := payload.(type) {
+	case *github.IssuesEvent:
+		pull, err := actions.GetPullRequest(e)
+		if err != nil {
+			return err
+		}
+		target := &Target{
+			Owner: e.Repo.Owner.GetLogin(),
+			Repo: e.Repo.GetName(),
+			PullRequest: pull,
+		}
+		return c.EnsureCheckRun(target)
 	case *github.PullRequestEvent:
-		return c.EnsureCheckRun(e)
+		owner := e.Repo.Owner.GetLogin()
+		repo := e.Repo.GetName()
+		target := &Target{
+			Owner: owner,
+			Repo: repo,
+			PullRequest: e.PullRequest,
+		}
+		return c.EnsureCheckRun(target)
 	}
 	return nil
 }
@@ -96,7 +119,7 @@ func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.Chec
 	return created, err
 }
 
-func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
+func (c *Command) EnsureCheckRun(pre *Target) error {
 	client, err := c.instTokenClient()
 	if err != nil {
 		return err
@@ -106,8 +129,8 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 
 	summary, text, runErr := c.runIt()
 
-	owner := pre.Repo.Owner.GetLogin()
-	repo := pre.Repo.GetName()
+	owner := pre.Owner
+	repo := pre.Repo
 
 	if c.checkRunName != "" {
 		suite, err := c.EnsureCheckSuite(pre)
@@ -212,7 +235,7 @@ func (c *Command) logCheckRun(checkRun *github.CheckRun) {
 	log.Printf("CheckRun:\n%s", buf.String())
 }
 
-func (c *Command) EnsureCheckSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
+func (c *Command) EnsureCheckSuite(pre *Target) (*github.CheckSuite, error) {
 	return c.getOneOfSuitesAlreadyCreatedByGitHubActions(pre)
 }
 
@@ -288,13 +311,13 @@ func (c *Command) logResponseAndError(suites *github.ListCheckSuiteResults, res 
 	return nil
 }
 
-func (c *Command) getOneOfSuitesAlreadyCreatedByGitHubActions(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
+func (c *Command) getOneOfSuitesAlreadyCreatedByGitHubActions(pre *Target) (*github.CheckSuite, error) {
 	client, err := c.instTokenClient()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a new installation token client: %s", err)
 	}
 
-	owner, repo := pre.GetRepo().GetOwner().GetLogin(), pre.GetRepo().GetName()
+	owner, repo := pre.Owner, pre.Repo
 
 	sha := pre.PullRequest.Head.GetSHA()
 

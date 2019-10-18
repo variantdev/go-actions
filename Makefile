@@ -8,7 +8,8 @@ build:
 	go build -o bin/actions ./cmd
 
 test/integration:
-	GITHUB_EVENT_NAME=issues GITHUB_EVENT_PATH=testdata/issues_event.json bin/actions pullvet
+	echo aaa
+	GITHUB_EVENT_NAME=issues GITHUB_EVENT_PATH=testdata/issues_event.json bin/actions exec -status-context milestone -- bin/actions pullvet -require-any -milestone-match 'test-v.+' label milestone/none
 
 test:
 	go test ./...

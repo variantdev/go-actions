@@ -72,6 +72,26 @@ func IssueEvent() (*github.IssuesEvent, error) {
 	return evt.(*github.IssuesEvent), nil
 }
 
+func GetPullRequest(issue *github.IssuesEvent) (*github.PullRequest, error) {
+	client, err := CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), "", "")
+	if err != nil {
+		return nil, err
+	}
+
+	if issue.Issue.GetPullRequestLinks().GetURL() == "" {
+		return nil, fmt.Errorf("issue %d is not a pull request", issue.Issue.GetNumber())
+	}
+
+	// This can be a pull_request milestoned/demilestoned events emitted as issue event
+	owner := issue.Repo.Owner.GetLogin()
+	repo := issue.Repo.GetName()
+	pull, _, err := client.PullRequests.Get(context.Background(), owner, repo, issue.Issue.GetNumber())
+	if err != nil {
+		return nil, err
+	}
+	return pull, nil
+}
+
 func PullRequest() (*github.PullRequest, string, string, error) {
 	var pr *github.PullRequest
 	var owner, repo string
@@ -82,22 +102,11 @@ func PullRequest() (*github.PullRequest, string, string, error) {
 			return nil, "", "", err
 		}
 
-		client, err := CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), "", "")
+		pull, err := GetPullRequest(issue)
 		if err != nil {
 			return nil, "", "", err
 		}
 
-		if issue.Issue.GetPullRequestLinks().GetURL() == "" {
-			return nil, "", "", fmt.Errorf("issue %d is not a pull request", issue.Issue.GetNumber())
-		}
-
-		// This can be a pull_request milestoned/demilestoned events emitted as issue event
-		owner := issue.Repo.Owner.GetLogin()
-		repo := issue.Repo.GetName()
-		pull, _, err := client.PullRequests.Get(context.Background(), owner, repo, issue.Issue.GetNumber())
-		if err != nil {
-			return nil, "", "", err
-		}
 		pr = pull
 	case "pull_request":
 		pull, err := PullRequestEvent()
