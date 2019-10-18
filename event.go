@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"github.com/google/go-github/v28/github"
 	"io/ioutil"
@@ -63,10 +64,41 @@ func CheckSuiteEvent() (*github.CheckSuiteEvent, error) {
 	return evt.(*github.CheckSuiteEvent), nil
 }
 
+func IssueEvent() (*github.IssueEvent, error) {
+	evt, err := github.ParseWebHook("issue", Event())
+	if err != nil {
+		return nil, err
+	}
+	return evt.(*github.IssueEvent), nil
+}
+
 func PullRequest() (*github.PullRequest, string, string, error) {
 	var pr *github.PullRequest
 	var owner, repo string
 	switch EventName() {
+	case "issue":
+		issue, err := IssueEvent()
+		if err != nil {
+			return nil, "", "", err
+		}
+
+		client, err := CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), "", "")
+		if err != nil {
+			return nil, "", "", err
+		}
+
+		if issue.Issue.GetPullRequestLinks().GetURL() == "" {
+			return nil, "", "", fmt.Errorf("issue %d is not a pull request", issue.Issue.GetNumber())
+		}
+
+		// This can be a pull_request milestoned/demilestoned events emitted as issue event
+		owner := issue.Issue.Repository.Owner.GetLogin()
+		repo := issue.Issue.Repository.GetName()
+		pull, _, err := client.PullRequests.Get(context.Background(), owner, repo, issue.Issue.GetNumber())
+		if err != nil {
+			return nil, "", "", err
+		}
+		pr = pull
 	case "pull_request":
 		pull, err := PullRequestEvent()
 		if err != nil {
