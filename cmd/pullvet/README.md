@@ -13,26 +13,29 @@ Just give me a simple Golang program that reads GitHub Actions v2 event json fil
 ## Usage
 
 ```
-Usage of bin/pullvet:
+$ bin/actions pullvet -help
+Usage of pullvet:
   -any-milestone
     	If set, pullvet fails whenever the pull request misses a milestone
   -label value
     	Required label. When provided multiple times, pullvet succeeds if one or more of required labels exist
+  -label-match value
+    	Regexp pattern to match label name against. If set, pullvet tries to find the label matches any of patterns and fail if none matched.
   -milestone string
     	If set, pullvet fails whenever the pull request misses a milestone
+  -milestone-match value
+    	Regexp pattern to match milestone title against. If set, pullvet tries to find the milestone matches any of patterns and fail if none matched.
   -note
     	Require a note with the specified title. pullvet fails whenever the pr misses the note in the pr description. A note can be written in Markdown as: **<title>**:
     	`
     	<body>
     	```
-  -note-regex
-    	Regexp pattern of each note(including the title and the body). Default: [\*]*([^\*:]+)[\*]*:\s`
-    	([^`]+)
-    	``` (default "[\\*]*([^\\*:]+)[\\*]*:\\s```\n([^`]+)\n```")
+  -note-regex string
+    	Regexp pattern of each note(including the title and the body) (default "[\\*]*([^\\*\r\n:]+)[\\*]*:\\s```\n([^`]+)\n```")
   -require-all
-    	If set, pullvet fails whenever the pull request was unable to fullfill any of the requirements. Default: false
+    	If set, pullvet fails whenever the pull request was unable to fullfill any of the requirements
   -require-any
-    	If set, pullvet fails whenever the pull request was unable to fullfill all the requirements. Default: true (default true)
+    	If set, pullvet fails whenever the pull request was unable to fullfill all the requirements (default true)
 ```
 
 ## Running locally

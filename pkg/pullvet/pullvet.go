@@ -23,6 +23,9 @@ type Command struct {
 	labels     cmd.StringSlice
 	noteTitles cmd.StringSlice
 
+	labelMatches     cmd.StringSlice
+	milestoneMatches cmd.StringSlice
+
 	noteRegex string
 
 	milestone string
@@ -45,13 +48,15 @@ func New() *Command {
 }
 
 func (c *Command) AddFlags(fs *flag.FlagSet) {
-	fs.BoolVar(&c.requireAny, "require-any", true, "If set, pullvet fails whenever the pull request was unable to fullfill all the requirements. Default: true")
-	fs.BoolVar(&c.requireAll, "require-all", false, "If set, pullvet fails whenever the pull request was unable to fullfill any of the requirements. Default: false")
+	fs.BoolVar(&c.requireAny, "require-any", true, "If set, pullvet fails whenever the pull request was unable to fullfill all the requirements")
+	fs.BoolVar(&c.requireAll, "require-all", false, "If set, pullvet fails whenever the pull request was unable to fullfill any of the requirements")
 	fs.Var(&c.labels, "label", "Required label. When provided multiple times, pullvet succeeds if one or more of required labels exist")
 	fs.BoolVar(&c.anyMilestone, "any-milestone", false, "If set, pullvet fails whenever the pull request misses a milestone")
 	fs.StringVar(&c.milestone, "milestone", "", "If set, pullvet fails whenever the pull request misses a milestone")
+	fs.Var(&c.labelMatches, "label-match", "Regexp pattern to match label name against. If set, pullvet tries to find the label matches any of patterns and fail if none matched.")
+	fs.Var(&c.milestoneMatches, "milestone-match", "Regexp pattern to match milestone title against. If set, pullvet tries to find the milestone matches any of patterns and fail if none matched.")
 	fs.Var(&c.noteTitles, "note", "Require a note with the specified title. pullvet fails whenever the pr misses the note in the pr description. A note can be written in Markdown as: **<title>**:\n```\n<body>\n```")
-	fs.StringVar(&c.noteRegex, "note-regex", defaultNoteRegex, "Regexp pattern of each note(including the title and the body). Default: "+defaultNoteRegex)
+	fs.StringVar(&c.noteRegex, "note-regex", defaultNoteRegex, "Regexp pattern of each note(including the title and the body)")
 }
 
 func (c *Command) Run() error {
@@ -88,6 +93,29 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 		}
 	}
 
+	labelRegexs := []*regexp.Regexp{}
+	for _, p := range c.labelMatches {
+		labelRegexs = append(labelRegexs, regexp.MustCompile(p))
+	}
+
+	for _, r := range labelRegexs {
+		var matched bool
+
+		for _, lbl := range labels {
+			if r.MatchString(lbl) {
+				matched = true
+			}
+		}
+
+		if matched {
+			any = true
+			passed += 1
+		} else {
+			all = false
+			failures = append(failures, fmt.Sprintf("no label matched %q", r.String()))
+		}
+	}
+
 	milestone := pullRequest.Milestone.GetTitle()
 
 	if c.milestone != "" {
@@ -97,6 +125,22 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 		} else {
 			all = false
 			failures = append(failures, fmt.Sprintf("unexpected milestone: expected %q, got %q", c.milestone, milestone))
+		}
+	}
+
+	milestoneRegexs := []*regexp.Regexp{}
+	for _, p := range c.milestoneMatches {
+		milestoneRegexs = append(milestoneRegexs, regexp.MustCompile(p))
+	}
+
+	for _, r := range milestoneRegexs {
+		matched := r.MatchString(milestone)
+		if matched {
+			any = true
+			passed += 1
+		} else {
+			all = false
+			failures = append(failures, fmt.Sprintf("milestone did not match %q", r.String()))
 		}
 	}
 

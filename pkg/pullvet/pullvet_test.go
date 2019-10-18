@@ -154,6 +154,78 @@ func TestRun(t *testing.T) {
 			},
 			expected: "1 check(s) failed:\n* missing label: v3",
 		},
+		//
+		// -label-match
+		//
+		{
+			cmd: &Command{requireAll: true, labelMatches: []string{"release-v.+"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
+			input: &github.PullRequest{
+				Labels: []*github.Label{
+					&github.Label{Name: github.String("rel-v1")},
+				},
+			},
+			expected: "1 check(s) failed:\n* no label matched \"release-v.+\"",
+		},
+		{
+			cmd: &Command{requireAll: true, labelMatches: []string{"release-v.+", "releasenote/none"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
+			input: &github.PullRequest{
+				Labels: []*github.Label{
+					&github.Label{Name: github.String("release-v1")},
+					&github.Label{Name: github.String("releasenote/none")},
+				},
+			},
+			expected: "",
+		},
+		{
+			cmd: &Command{requireAll: true, labelMatches: []string{"release-v.+", "releasenote/none"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
+			input: &github.PullRequest{
+				Labels: []*github.Label{
+					&github.Label{Name: github.String("rel-v1")},
+					&github.Label{Name: github.String("releasenote/none")},
+				},
+			},
+			expected: "1 check(s) failed:\n* no label matched \"release-v.+\"",
+		},
+		{
+			cmd: &Command{requireAny: true, labelMatches: []string{"release-v.+", "releasenote/none"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
+			input: &github.PullRequest{
+				Labels: []*github.Label{
+					&github.Label{Name: github.String("rel-v1")},
+					&github.Label{Name: github.String("releasenote/none")},
+				},
+			},
+			expected: "",
+		},
+		{
+			cmd: &Command{requireAll: true, labelMatches: []string{"release-v.+"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
+			input: &github.PullRequest{
+				Labels: []*github.Label{
+					&github.Label{Name: github.String("release-v1")},
+				},
+			},
+			expected: "",
+		},
+		//
+		// -milestone-match
+		//
+		{
+			cmd: &Command{requireAny: true, milestoneMatches: []string{"release-v.+"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
+			input: &github.PullRequest{
+				Milestone: &github.Milestone{
+					Title: github.String("rel-v1"),
+				},
+			},
+			expected: "1 check(s) failed:\n* milestone did not match \"release-v.+\"",
+		},
+		{
+			cmd: &Command{requireAny: true, milestoneMatches: []string{"release-v.+", "rel-v.+"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
+			input: &github.PullRequest{
+				Milestone: &github.Milestone{
+					Title: github.String("rel-v1"),
+				},
+			},
+			expected: "",
+		},
 	}
 
 	for i := range testcases {
