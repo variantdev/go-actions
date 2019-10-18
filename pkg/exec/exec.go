@@ -22,6 +22,7 @@ type Command struct {
 
 	statusContext     string
 	statusDescription string
+	statusTargetURL   string
 
 	cmd  string
 	args []string
@@ -40,6 +41,7 @@ func (c *Command) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.checkRunName, "check-run-name", "", "CheckRun's name to be updated after the command in run")
 	fs.StringVar(&c.statusContext, "status-context", "", "Commit status' context. If not empty, `exec` creates a status with this context")
 	fs.StringVar(&c.statusDescription, "status-description", "", "Commit status' description. `exec` creates a status with this description")
+	fs.StringVar(&c.statusTargetURL, "status-target-url", "", "Commit status' target_url. `exec` creates a status with this url as the link target")
 }
 
 func (c *Command) Run(args []string) error {
@@ -71,6 +73,7 @@ type Run struct {
 	suiteId           int64
 	runId             int64
 }
+
 func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.CheckRun, error) {
 	client, err := c.instTokenClient()
 	if err != nil {
@@ -177,6 +180,11 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 			Context:     github.String(c.statusContext),
 			Description: github.String(desc),
 		}
+
+		if c.statusTargetURL != "" {
+			status.TargetURL = github.String(c.statusTargetURL)
+		}
+
 		repoStatus, _, err := client.Repositories.CreateStatus(context.Background(), owner, repo, sha, status)
 		if err != nil {
 			log.Printf("Failed creating status: %v", err)
