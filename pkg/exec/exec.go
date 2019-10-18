@@ -166,9 +166,11 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 			desc = summary
 		}
 
-		// Otherwise you get errors like:
-		//  2019/10/17 18:25:08 Failed creating status: POST https://api.github.com/repos/variantdev/go-actions/statuses/ceb4320db3c54081d55daa6d7a50ed8dc7fafc86: 422 Validation Failed [{Resource:Status Field:description Code:custom Message:description is too long (maximum is 140 characters)}]
-		desc = desc[0:140]
+		if len(desc) > 140 {
+			// Otherwise you get errors like:
+			//  2019/10/17 18:25:08 Failed creating status: POST https://api.github.com/repos/variantdev/go-actions/statuses/ceb4320db3c54081d55daa6d7a50ed8dc7fafc86: 422 Validation Failed [{Resource:Status Field:description Code:custom Message:description is too long (maximum is 140 characters)}]
+			desc = desc[0:140]
+		}
 
 		status := &github.RepoStatus{
 			State:       github.String(state),
