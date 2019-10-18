@@ -188,12 +188,12 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 		}
 	}
 
-	if c.requireAny && !any {
-		return fmt.Errorf("%d check(s) failed:\n%s\n", len(failures), formatFailures(failures))
-	}
+	if (c.requireAny && !any) || c.requireAll && !all {
+		e := fmt.Errorf("%d check(s) failed:\n%s\n", len(failures), formatFailures(failures))
 
-	if c.requireAll && !all {
-		return fmt.Errorf("%d check(s) failed:\n%s\n", len(failures), formatFailures(failures))
+		fmt.Fprintf(os.Stdout, "%s\n", e.Error())
+
+		return e
 	}
 
 	fmt.Fprintf(os.Stdout, "%d check(s) passed\n", passed)
