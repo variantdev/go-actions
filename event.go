@@ -64,12 +64,12 @@ func CheckSuiteEvent() (*github.CheckSuiteEvent, error) {
 	return evt.(*github.CheckSuiteEvent), nil
 }
 
-func IssueEvent() (*github.IssueEvent, error) {
+func IssueEvent() (*github.IssuesEvent, error) {
 	evt, err := github.ParseWebHook("issues", Event())
 	if err != nil {
 		return nil, err
 	}
-	return evt.(*github.IssueEvent), nil
+	return evt.(*github.IssuesEvent), nil
 }
 
 func PullRequest() (*github.PullRequest, string, string, error) {
@@ -92,8 +92,8 @@ func PullRequest() (*github.PullRequest, string, string, error) {
 		}
 
 		// This can be a pull_request milestoned/demilestoned events emitted as issue event
-		owner := issue.Issue.Repository.Owner.GetLogin()
-		repo := issue.Issue.Repository.GetName()
+		owner := issue.Repo.Owner.GetLogin()
+		repo := issue.Repo.GetName()
 		pull, _, err := client.PullRequests.Get(context.Background(), owner, repo, issue.Issue.GetNumber())
 		if err != nil {
 			return nil, "", "", err
