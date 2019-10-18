@@ -65,7 +65,7 @@ func CheckSuiteEvent() (*github.CheckSuiteEvent, error) {
 }
 
 func IssueEvent() (*github.IssueEvent, error) {
-	evt, err := github.ParseWebHook("issue", Event())
+	evt, err := github.ParseWebHook("issues", Event())
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func PullRequest() (*github.PullRequest, string, string, error) {
 	var pr *github.PullRequest
 	var owner, repo string
 	switch EventName() {
-	case "issue":
+	case "issues":
 		issue, err := IssueEvent()
 		if err != nil {
 			return nil, "", "", err
