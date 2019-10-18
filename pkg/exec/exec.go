@@ -73,8 +73,8 @@ func (c *Command) HandleEvent(payload interface{}) error {
 			return err
 		}
 		target := &Target{
-			Owner: e.Repo.Owner.GetLogin(),
-			Repo: e.Repo.GetName(),
+			Owner:       e.Repo.Owner.GetLogin(),
+			Repo:        e.Repo.GetName(),
 			PullRequest: pull,
 		}
 		return c.EnsureCheckRun(target)
@@ -82,8 +82,8 @@ func (c *Command) HandleEvent(payload interface{}) error {
 		owner := e.Repo.Owner.GetLogin()
 		repo := e.Repo.GetName()
 		target := &Target{
-			Owner: owner,
-			Repo: repo,
+			Owner:       owner,
+			Repo:        repo,
 			PullRequest: e.PullRequest,
 		}
 		return c.EnsureCheckRun(target)
@@ -119,18 +119,61 @@ func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.Chec
 	return created, err
 }
 
+func (c *Command) CreateAndLogStatus(client *github.Client, owner, repo, sha string, status *github.RepoStatus) error {
+	desc := status.GetDescription()
+	if len(desc) > 140 {
+		// Otherwise you get errors like:
+		//  2019/10/17 18:25:08 Failed creating status: POST https://api.github.com/repos/variantdev/go-actions/statuses/ceb4320db3c54081d55daa6d7a50ed8dc7fafc86: 422 Validation Failed [{Resource:Status Field:description Code:custom Message:description is too long (maximum is 140 characters)}]
+		desc = desc[0:140]
+
+		status.Description = &desc
+	}
+
+	repoStatus, _, err := client.Repositories.CreateStatus(context.Background(), owner, repo, sha, status)
+	if err != nil {
+		log.Printf("Failed creating status: %v", err)
+	} else {
+		buf := bytes.Buffer{}
+		enc := json.NewEncoder(&buf)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(repoStatus); err != nil {
+			return err
+		}
+		log.Printf("Created repo status:\n%s", buf.String())
+	}
+
+	return nil
+}
+
 func (c *Command) EnsureCheckRun(pre *Target) error {
 	client, err := c.instTokenClient()
 	if err != nil {
 		return err
 	}
 
+	owner := pre.Owner
+	repo := pre.Repo
+	sha := pre.PullRequest.Head.GetSHA()
+
+	if c.statusContext != "" {
+		status := &github.RepoStatus{
+			State:       github.String("pending"),
+			Context:     github.String(c.statusContext),
+			Description: github.String(c.statusDescription),
+		}
+
+		if c.statusTargetURL != "" {
+			status.TargetURL = github.String(c.statusTargetURL)
+		}
+
+		if err := c.CreateAndLogStatus(client, owner, repo, sha, status); err != nil {
+			return err
+		}
+	}
+
 	log.Printf("Running command: %q", c.cmd)
 
 	summary, text, runErr := c.runIt()
-
-	owner := pre.Owner
-	repo := pre.Repo
 
 	if c.checkRunName != "" {
 		suite, err := c.EnsureCheckSuite(pre)
@@ -176,7 +219,6 @@ func (c *Command) EnsureCheckRun(pre *Target) error {
 	}
 
 	if c.statusContext != "" {
-		sha := pre.PullRequest.Head.GetSHA()
 		var state string
 		if runErr != nil {
 			state = "failure"
@@ -192,12 +234,6 @@ func (c *Command) EnsureCheckRun(pre *Target) error {
 			desc = summary
 		}
 
-		if len(desc) > 140 {
-			// Otherwise you get errors like:
-			//  2019/10/17 18:25:08 Failed creating status: POST https://api.github.com/repos/variantdev/go-actions/statuses/ceb4320db3c54081d55daa6d7a50ed8dc7fafc86: 422 Validation Failed [{Resource:Status Field:description Code:custom Message:description is too long (maximum is 140 characters)}]
-			desc = desc[0:140]
-		}
-
 		status := &github.RepoStatus{
 			State:       github.String(state),
 			Context:     github.String(c.statusContext),
@@ -208,17 +244,8 @@ func (c *Command) EnsureCheckRun(pre *Target) error {
 			status.TargetURL = github.String(c.statusTargetURL)
 		}
 
-		repoStatus, _, err := client.Repositories.CreateStatus(context.Background(), owner, repo, sha, status)
-		if err != nil {
-			log.Printf("Failed creating status: %v", err)
-		} else {
-			buf := bytes.Buffer{}
-			enc := json.NewEncoder(&buf)
-			enc.SetIndent("", "  ")
-			if err := enc.Encode(repoStatus); err != nil {
-				return err
-			}
-			log.Printf("Created repo status:\n%s", buf.String())
+		if err := c.CreateAndLogStatus(client, owner, repo, sha, status); err != nil {
+			return err
 		}
 	}
 
