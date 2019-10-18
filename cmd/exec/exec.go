@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/variantdev/go-actions/pkg/checks"
+	"github.com/variantdev/go-actions/pkg/exec"
 )
 
 func main() {
 	cmd := exec.New()
 
 	fs := flag.CommandLine
-	fs.Init("checks", flag.ExitOnError)
+	fs.Init("exec", flag.ExitOnError)
 	cmd.AddFlags(fs)
 
 	flag.Parse()

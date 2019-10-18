@@ -1,4 +1,4 @@
-package checks
+package actions
 
 import (
 	"strings"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestRunCmd(t *testing.T) {
-	stdout, fullout, err := runCmd("sh", []string{"-c", "echo stdout1; echo stderr1 1>&2"})
+	stdout, fullout, err := RunCmd("sh", []string{"-c", "echo stdout1; echo stderr1 1>&2"})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

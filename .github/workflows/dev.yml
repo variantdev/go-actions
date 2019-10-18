@@ -48,7 +48,7 @@ jobs:
         make build
     - name: dev1
       run: |
-        bin/actions checks -run dev1 -- bin/actions pullvet -require-any -label dev1
+        bin/actions exec -check-run-name dev1 -- bin/actions pullvet -require-any -label dev1
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
   ensure-dev2:
@@ -63,7 +63,7 @@ jobs:
         make build
     - name: dev2
       run: |
-        bin/actions checks -run dev2 -- bin/actions pullvet -require-any -label dev2 -label dev3
+        bin/actions exec -check-run-name dev2 -- bin/actions pullvet -require-any -label dev2 -label dev3
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
   ensure-dev3:
@@ -78,7 +78,7 @@ jobs:
         make build
     - name: dev3
       run: |
-        bin/actions checks -status-context checks/dev3 -- bin/actions pullvet -require-any -label dev3
+        bin/actions exec -status-context checks/dev3 -- bin/actions pullvet -require-any -label dev3
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
   ensure-changelog:
@@ -93,7 +93,7 @@ jobs:
         make build
     - name: changelog
       run: |
-        bin/actions checks -status-context checks/changelog -- bin/actions pullvet -require-any -note changelog1 -note changelog2
+        bin/actions exec -status-context checks/changelog -- bin/actions pullvet -require-any -note changelog1 -note changelog2
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
   ensure-releasenote:
@@ -104,6 +104,6 @@ jobs:
       with:
         entrypoint: sh
         args: |
-          -c "actions checks -status-context checks/releasenote -- actions pullvet -require-any -label releasenote/none -note releasenote"
+          -c "actions exec -status-context checks/releasenote -- actions pullvet -require-any -label releasenote/none -note releasenote"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -32,7 +32,7 @@ Usage of bin/checks:
 > and there's currently no way to obtain an installation token locally,
 > you can't test this locally.
 
-Capture actual webhook payloads for `pull_request`, `check_suite`, `check_run` events by running `cat /github/workflow/event.json` on GitHub Actions.
+Capture actual webhook payloads for `pull_request`, `check_suite`, `check_run` events by running `cat $GITHUB_EVENT_PATH` on GitHub Actions.
 
 Install this workflow onto your test repository:
 

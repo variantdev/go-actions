@@ -1,4 +1,4 @@
-package checks
+package actions
 
 import (
 	"bufio"
@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-func runCmd(cmd string, args []string) (string, string, error) {
+func RunCmd(cmd string, args []string) (string, string, error) {
 	c := exec.Command(cmd, args...)
 	//c.Stdin = os.Stdin
 	//var out bytes.Buffer

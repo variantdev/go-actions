@@ -1,8 +1,8 @@
 build/pullvet:
 	go build -o bin/pullvet ./cmd/pullvet
 
-build/checks:
-	go build -o bin/checks ./cmd/checks
+build/exec:
+	go build -o bin/exec ./cmd/exec
 
 build:
 	go build -o bin/actions ./cmd

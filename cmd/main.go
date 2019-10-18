@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/variantdev/go-actions/pkg/checks"
+	"github.com/variantdev/go-actions/pkg/exec"
 	"github.com/variantdev/go-actions/pkg/pullvet"
 )
 
@@ -16,7 +16,7 @@ Usage:
   actions [command]
 Available Commands:
   pullvet	checks labels and milestones associated to each pull request for project management and compliance
-  checks	drives GitHub Checks by creating CheckSuite and CheckRun, running and updating CheckRun
+  exec		runs an arbitrary command and updates GitHub "Check Run" and/or "Status" accordingly.
 
 Use "actions [command] --help" for more information about a command
 `
@@ -31,7 +31,7 @@ func fatal(format string, args ...interface{}) {
 
 const (
 	CmdPullvet = "pullvet"
-	CmdChecks  = "checks"
+	CmdExec    = "exec"
 )
 
 func main() {
@@ -53,9 +53,9 @@ func main() {
 		if err := cmd.Run(); err != nil {
 			fatal("%v\n", err)
 		}
-	case CmdChecks:
-		fs := flag.NewFlagSet(CmdChecks, flag.ExitOnError)
-		cmd := checks.New()
+	case CmdExec:
+		fs := flag.NewFlagSet(CmdExec, flag.ExitOnError)
+		cmd := exec.New()
 		cmd.AddFlags(fs)
 
 		fs.Parse(os.Args[2:])

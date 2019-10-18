@@ -1,26 +1,22 @@
-package checks
+package exec
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/google/go-github/v28/github"
 	"github.com/variantdev/go-actions"
-	"github.com/variantdev/go-actions/pkg/cmd"
 )
 
 type Command struct {
 	BaseURL, UploadURL string
-	createRuns         cmd.StringSlice
 
 	checkRunName string
 
@@ -41,7 +37,6 @@ func New() *Command {
 func (c *Command) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.BaseURL, "github-base-url", "", "")
 	fs.StringVar(&c.UploadURL, "github-upload-url", "", "")
-	fs.Var(&c.createRuns, "create-run", "Name of CheckRun to be created on CheckSuite `(re)requested` event. Specify multiple times to create two or more runs")
 	fs.StringVar(&c.checkRunName, "check-run-name", "", "CheckRun's name to be updated after the command in run")
 	fs.StringVar(&c.statusContext, "status-context", "", "Commit status' context. If not empty, `exec` creates a status with this context")
 	fs.StringVar(&c.statusDescription, "status-description", "", "Commit status' description. `exec` creates a status with this description")
@@ -67,10 +62,6 @@ func (c *Command) HandleEvent(payload interface{}) error {
 	switch e := payload.(type) {
 	case *github.PullRequestEvent:
 		return c.EnsureCheckRun(e)
-	case *github.CheckSuiteEvent:
-		return c.CreateCheckRunsForSuite(e.CheckSuite)
-	case *github.CheckRunEvent:
-		return c.ExecCheckRun(e)
 	}
 	return nil
 }
@@ -80,41 +71,10 @@ type Run struct {
 	suiteId           int64
 	runId             int64
 }
-
-func (c *Command) CreateCheckRunsForSuite(e *github.CheckSuite) error {
-	owner, repo := e.Repository.GetOwner().GetLogin(), e.Repository.GetName()
-	for _, name := range c.createRuns {
-		_, err := c.createCheckRun(e, Run{owner: owner, repo: repo, name: name})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.CheckRun, error) {
 	client, err := c.instTokenClient()
 	if err != nil {
 		return nil, err
-	}
-
-	log.Printf("Running CreateCheckRun experiment")
-
-	_, _, err = c.CreateCheckRun(
-		client,
-		context.Background(),
-		cr.owner, cr.repo,
-		CreateCheckRunOptions{
-			Name:         cr.name,
-			HeadBranch:   suite.GetHeadBranch(),
-			HeadSHA:      suite.GetHeadSHA(),
-			StartedAt:    &github.Timestamp{Time: time.Now()},
-			Status:       github.String("queued"),
-			CheckSuiteID: suite.ID,
-		})
-
-	if err != nil {
-		log.Printf("Failed experimentation on CreateCheckRun: %v", err)
 	}
 
 	log.Printf("Creating a check run")
@@ -131,40 +91,6 @@ func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.Chec
 		})
 
 	return created, err
-}
-
-type CreateCheckRunOptions struct {
-	Name       string  `json:"name"`                  // The name of the check (e.g., "code-coverage"). (Required.)
-	HeadBranch string  `json:"head_branch"`           // The name of the branch to perform a check against. (Required.)
-	HeadSHA    string  `json:"head_sha"`              // The SHA of the commit. (Required.)
-	DetailsURL *string `json:"details_url,omitempty"` // The URL of the integrator's site that has the full details of the check. (Optional.)
-	ExternalID *string `json:"external_id,omitempty"` // A reference for the run on the integrator's system. (Optional.)
-	Status     *string `json:"status,omitempty"`      // The current status. Can be one of "queued", "in_progress", or "completed". Default: "queued". (Optional.)
-	Conclusion *string `json:"conclusion,omitempty"`  // Can be one of "success", "failure", "neutral", "cancelled", "timed_out", or "action_required". (Optional. Required if you provide a status of "completed".)
-	// Does this really work?
-	CheckSuiteID *int64                   `json:"check_suite_id,omitempty`
-	StartedAt    *github.Timestamp        `json:"started_at,omitempty"`   // The time that the check run began. (Optional.)
-	CompletedAt  *github.Timestamp        `json:"completed_at,omitempty"` // The time the check completed. (Optional. Required if you provide conclusion.)
-	Output       *github.CheckRunOutput   `json:"output,omitempty"`       // Provide descriptive details about the run. (Optional)
-	Actions      []*github.CheckRunAction `json:"actions,omitempty"`      // Possible further actions the integrator can perform, which a user may trigger. (Optional.)
-}
-
-func (c *Command) CreateCheckRun(client *github.Client, ctx context.Context, owner, repo string, opt CreateCheckRunOptions) (*github.CheckRun, *github.Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/check-suites/%v/check-runs", owner, repo, *opt.CheckSuiteID)
-	req, err := client.NewRequest("POST", u, opt)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	req.Header.Set("Accept", "application/vnd.github.antiope-preview+json")
-
-	checkRun := new(github.CheckRun)
-	resp, err := client.Do(ctx, req, checkRun)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return checkRun, resp, nil
 }
 
 func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
@@ -232,9 +158,17 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 			state = "success"
 		}
 
+		var desc string
+
+		if c.statusDescription != "" {
+			desc = c.statusDescription + ". " + text
+		} else {
+			desc = text
+		}
+
 		// Otherwise you get errors like:
 		//  2019/10/17 18:25:08 Failed creating status: POST https://api.github.com/repos/variantdev/go-actions/statuses/ceb4320db3c54081d55daa6d7a50ed8dc7fafc86: 422 Validation Failed [{Resource:Status Field:description Code:custom Message:description is too long (maximum is 140 characters)}]
-		desc := text[0:140]
+		desc = desc[0:140]
 
 		status := &github.RepoStatus{
 			State:       github.String(state),
@@ -269,22 +203,7 @@ func (c *Command) logCheckRun(checkRun *github.CheckRun) {
 }
 
 func (c *Command) EnsureCheckSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
-	suite, err := c.getSuite(pre)
-	if err != nil {
-		return nil, err
-	}
-
-	if suite == nil {
-		return c.CreateCheckSuite(pre)
-	}
-
-	return suite, nil
-}
-
-func (c *Command) ExecCheckRun(e *github.CheckRunEvent) error {
-	stdout, fullout, err := c.runIt()
-
-	return c.UpdateCheckRun(e.GetRepo().Owner.GetLogin(), e.GetRepo().GetName(), e.CheckRun, stdout, fullout, err)
+	return c.getOneOfSuitesAlreadyCreatedByGitHubActions(pre)
 }
 
 func (c *Command) UpdateCheckRun(owner, repo string, checkRun *github.CheckRun, summary, text string, runErr error) error {
@@ -359,7 +278,7 @@ func (c *Command) logResponseAndError(suites *github.ListCheckSuiteResults, res 
 	return nil
 }
 
-func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
+func (c *Command) getOneOfSuitesAlreadyCreatedByGitHubActions(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
 	client, err := c.instTokenClient()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a new installation token client: %s", err)
@@ -376,13 +295,7 @@ func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, er
 
 	c.logResponseAndError(suites, res, err)
 
-	log.Printf("Listing relevant suites for check name %q...", c.checkRunName)
-
-	suites, res, err = client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{
-		CheckName: github.String(c.checkRunName),
-	})
-
-	if err := c.logResponseAndError(suites, res, err); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -394,77 +307,6 @@ func (c *Command) getSuite(pre *github.PullRequestEvent) (*github.CheckSuite, er
 	}
 
 	return nil, nil
-}
-
-// CreateCheckSuite creates a new check suite and rerequests it based on a pull request.
-//
-// The Check Suite webhook events are normally only triggered on `push` events. This function acts as an
-// adapter to take a PR and trigger a check suite.
-//
-// The GitHub API is still evolving, so the current way we do this is...
-//
-//	- generate auth tokens for the instance/app combo. This is required to perform the action as a
-//		GitHub app
-//	- try to create a check_suite
-//		- if success, run a `rerequest` on this check suite because merely creating a check suite does
-// 		  not actually trigger a check_suite:requested webhook event
-//		- if failure, check to see if we already have a check suite object, and merely run the rerequest
-//		  on that check suite.
-func (c *Command) CreateCheckSuite(pre *github.PullRequestEvent) (*github.CheckSuite, error) {
-	repoFullname := pre.Repo.GetFullName()
-	ref := fmt.Sprintf("refs/pull/%d/head", pre.PullRequest.GetNumber())
-	sha := pre.PullRequest.Head.GetSHA()
-
-	client, err := c.instTokenClient()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create a new installation token client: %s", err)
-	}
-
-	ownerRepo := strings.Split(repoFullname, "/")
-	owner, repo := ownerRepo[0], ownerRepo[1]
-
-	csOpts := github.CreateCheckSuiteOptions{
-		HeadSHA:    sha,
-		HeadBranch: &ref,
-	}
-	log.Printf("requesting check suite run for %s/%s, SHA: %s", owner, repo, csOpts.HeadSHA)
-
-	cs, res, err := client.Checks.CreateCheckSuite(context.Background(), owner, repo, csOpts)
-	if err != nil {
-		log.Printf("Failed to create check suite: %s", err)
-
-		// 422 means the suite already exists.
-		if res.StatusCode != 422 {
-			return nil, errors.New("could not create check suite")
-		}
-
-		log.Println("rerunning the last suite")
-		csl, _, err := client.Checks.ListCheckSuitesForRef(context.Background(), owner, repo, sha, &github.ListCheckSuiteOptions{})
-		if err == nil && csl.GetTotal() > 0 {
-			log.Printf("Loading check suite %d", csl.CheckSuites[0].GetID())
-			_, err := client.Checks.ReRequestCheckSuite(context.Background(), owner, repo, csl.CheckSuites[0].GetID())
-			if err != nil {
-				log.Printf("error rerunning suite: %s", err)
-			}
-		} else {
-			log.Printf("error fetching check suites: %s", err)
-		}
-		return nil, err
-	}
-
-	if err == nil {
-		buf := bytes.Buffer{}
-		enc := json.NewEncoder(&buf)
-		enc.SetIndent("", "  ")
-		jsonErr := enc.Encode(cs)
-		if jsonErr != nil {
-			return nil, jsonErr
-		}
-		csJson := buf.String()
-		log.Printf("Created suite: %s", csJson)
-	}
-
-	return cs, err
 }
 
 func (c *Command) instTokenClient() (*github.Client, error) {
