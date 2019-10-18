@@ -161,9 +161,9 @@ func (c *Command) EnsureCheckRun(pre *github.PullRequestEvent) error {
 		var desc string
 
 		if c.statusDescription != "" {
-			desc = c.statusDescription + ". " + text
+			desc = c.statusDescription + ". " + summary
 		} else {
-			desc = text
+			desc = summary
 		}
 
 		// Otherwise you get errors like:
