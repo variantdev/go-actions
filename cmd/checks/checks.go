@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	cmd := exec.New()
+	cmd := checks.New()
 
 	fs := flag.CommandLine
 	fs.Init("checks", flag.ExitOnError)

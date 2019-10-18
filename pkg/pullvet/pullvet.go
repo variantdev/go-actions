@@ -30,6 +30,8 @@ type Command struct {
 	anyMilestone bool
 	requireAny   bool
 	requireAll   bool
+
+	getPullRequestBody func(string, string, int) (string, error)
 }
 
 func normalizeNewlines(str string) string {
@@ -38,6 +40,7 @@ func normalizeNewlines(str string) string {
 
 func New() *Command {
 	return &Command{
+		getPullRequestBody: GetPullRequestBody,
 	}
 }
 
@@ -112,25 +115,11 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 	var body string
 
 	if owner != "" {
-		client, err := actions.CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), "", "")
+		var err error
+		body, err = c.getPullRequestBody(owner, repo, pullRequest.GetNumber())
 		if err != nil {
 			return err
 		}
-
-		pr, _, err := client.PullRequests.Get(context.Background(), owner, repo, pullRequest.GetNumber())
-		if err != nil {
-			return err
-		}
-
-		buf := bytes.Buffer{}
-		enc := json.NewEncoder(&buf)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(pr); err != nil {
-			return err
-		}
-		log.Printf("Pull request:\n%s", buf.String())
-
-		body = pr.GetBody()
 	} else {
 		body = pullRequest.GetBody()
 	}
@@ -166,6 +155,28 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 	fmt.Fprintf(os.Stdout, "%d check(s) passed\n", passed)
 
 	return nil
+}
+
+func GetPullRequestBody(owner, repo string, prNumber int) (string, error) {
+	client, err := actions.CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), "", "")
+	if err != nil {
+		return "", err
+	}
+
+	pr, _, err := client.PullRequests.Get(context.Background(), owner, repo, prNumber)
+	if err != nil {
+		return "", err
+	}
+
+	buf := bytes.Buffer{}
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(pr); err != nil {
+		return "", err
+	}
+	log.Printf("Pull request:\n%s", buf.String())
+
+	return pr.GetBody(), nil
 }
 
 func formatFailures(failures []string) string {

@@ -88,48 +88,54 @@ func TestNoteRegex(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
+	stubPRBody := func(body string) func(owner, repo string, num int) (string, error) {
+		return func(owner, repo string, num int) (string, error) {
+			return body, nil
+		}
+	}
+
 	testcases := []struct {
 		cmd      *Command
 		input    *github.PullRequest
 		expected string
 	}{
 		{
-			cmd:      &Command{requireAny: true, labels: []string{"v1"}},
+			cmd:      &Command{requireAny: true, labels: []string{"v1"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
 			input:    &github.PullRequest{Labels: []*github.Label{&github.Label{Name: github.String("v1")}}},
 			expected: "",
 		},
 		{
-			cmd:      &Command{requireAny: true, labels: []string{"v2"}},
+			cmd:      &Command{requireAny: true, labels: []string{"v2"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
 			input:    &github.PullRequest{Labels: []*github.Label{&github.Label{Name: github.String("v1")}}},
 			expected: "1 check(s) failed:\n* missing label: v2",
 		},
 		{
-			cmd:      &Command{requireAny: true, labels: []string{"v2", "v3"}},
+			cmd:      &Command{requireAny: true, labels: []string{"v2", "v3"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
 			input:    &github.PullRequest{Labels: []*github.Label{&github.Label{Name: github.String("v1")}}},
 			expected: "2 check(s) failed:\n* missing label: v2\n* missing label: v3",
 		},
 		{
-			cmd:      &Command{requireAny: true, milestone: "v1"},
+			cmd:      &Command{requireAny: true, milestone: "v1", noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
 			input:    &github.PullRequest{Milestone: &github.Milestone{Title: github.String("v1")}},
 			expected: "",
 		},
 		{
-			cmd:      &Command{requireAny: true, anyMilestone: true},
+			cmd:      &Command{requireAny: true, anyMilestone: true, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
 			input:    &github.PullRequest{Milestone: &github.Milestone{Title: github.String("v1")}},
 			expected: "",
 		},
 		{
-			cmd:      &Command{requireAny: true, milestone: "v2"},
+			cmd:      &Command{requireAny: true, milestone: "v2", noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
 			input:    &github.PullRequest{Milestone: &github.Milestone{Title: github.String("v1")}},
 			expected: "1 check(s) failed:\n* unexpected milestone: expected \"v2\", got \"v1\"",
 		},
 		{
-			cmd:      &Command{requireAny: true, anyMilestone: true},
+			cmd:      &Command{requireAny: true, anyMilestone: true, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
 			input:    &github.PullRequest{},
 			expected: "1 check(s) failed:\n* missing milestone",
 		},
 		{
-			cmd: &Command{requireAny: true, labels: []string{"v2", "v3"}},
+			cmd: &Command{requireAny: true, labels: []string{"v2", "v3"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
 			input: &github.PullRequest{
 				Labels: []*github.Label{
 					&github.Label{Name: github.String("v2")},
@@ -139,7 +145,7 @@ func TestRun(t *testing.T) {
 			expected: "",
 		},
 		{
-			cmd: &Command{requireAll: true, labels: []string{"v2", "v3"}},
+			cmd: &Command{requireAll: true, labels: []string{"v2", "v3"}, noteRegex: defaultNoteRegex, getPullRequestBody: stubPRBody("")},
 			input: &github.PullRequest{
 				Labels: []*github.Label{
 					&github.Label{Name: github.String("v2")},
@@ -153,7 +159,7 @@ func TestRun(t *testing.T) {
 	for i := range testcases {
 		tc := testcases[i]
 
-		err := tc.cmd.HandlePullRequest("", "", tc.input)
+		err := tc.cmd.HandlePullRequest("myuser", "myrepo", tc.input)
 
 		if tc.expected != "" && !strings.Contains(err.Error(), tc.expected) {
 			t.Errorf("unexpected error: expected=%q, got=%q", tc.expected, err)
