@@ -2,15 +2,18 @@
 
 [![dockeri.co](https://dockeri.co/image/variantdev/actions)](https://hub.docker.com/r/variantdev/actions)
 
-A collection of usable commands for GitHub v2 Actions, written in Go. 
+A collection of universally useful commands written in Go for GitHub v2 Actions.
 
-Use for as-is, or reference and inspiration of your own command.
+Close gaps you might encounter while using GitHub Actions v2 for CI/CD and for running bots. 
+
+Use for as-is, or as a reference and source-of-inspiration of your own command.
 
 ## Included commands
 
-- [pullvet](https://github.com/variantdev/go-actions/tree/master/cmd/pullvet) checks labels and milestones associated to each pull request for project management and compliance.
+- For PR checking bot: [pullvet](https://github.com/variantdev/go-actions/tree/master/cmd/pullvet) checks labels and milestones associated to each pull request for project management and compliance.
    A pullvet rule looks like `accept only PR that does have at least one of these labels and one or more release notes in the description`.
-- [exec](https://github.com/variantdev/go-actions/tree/master/cmd/exec) runs an arbitrary command and updates GitHub "Check Run" and/or "Status" accordingly
+- For CI/CD: [exec](https://github.com/variantdev/go-actions/tree/master/cmd/exec) runs an arbitrary command and updates GitHub "Check Run" and/or "Status" accordingly
+  - Why you need this? Actions v2 is [based on Checks API](https://help.github.com/en/articles/managing-a-workflow-run#about-workflow-management) and suffers from [duplicated statuses from repeated workflow runs](https://github.community/t5/GitHub-Actions/duplicate-checks-on-pull-request-event/td-p/33157). Use the [Statuses](https://developer.github.com/v3/repos/statuses/) API for a non-duplicated status.
 
 ## Usage
 
