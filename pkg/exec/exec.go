@@ -370,5 +370,5 @@ func (c *Command) getOneOfSuitesAlreadyCreatedByGitHubActions(pre *Target) (*git
 }
 
 func (c *Command) instTokenClient() (*github.Client, error) {
-	return actions.CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
+	return actions.CreateClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
 }

@@ -73,7 +73,7 @@ func IssueEvent() (*github.IssuesEvent, error) {
 }
 
 func GetPullRequest(issue *github.IssuesEvent) (*github.PullRequest, error) {
-	client, err := CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), "", "")
+	client, err := CreateClient(os.Getenv("GITHUB_TOKEN"), "", "")
 	if err != nil {
 		return nil, err
 	}

@@ -8,8 +8,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// CreateInstallationTokenClient uses an installation token to authenticate to the Github API.
-func CreateInstallationTokenClient(instToken, baseURL, uploadURL string) (*github.Client, error) {
+// CreateClient uses either of the belows to authenticate to the Github API:
+// - installation toke: `"token " + os.Getenv("GITHUB_TOKEN")`
+// - personal access token: `"bearer " + os.Getenv("GITHUB_TOKEN")`
+func CreateClient(instToken, baseURL, uploadURL string) (*github.Client, error) {
 	// For installation tokens, Github uses a different token type ("token" instead of "bearer")
 	tokenType := "token"
 	if os.Getenv("GITHUB_TOKEN_TYPE") != "" {

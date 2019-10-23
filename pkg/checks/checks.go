@@ -468,5 +468,5 @@ func (c *Command) CreateCheckSuite(pre *github.PullRequestEvent) (*github.CheckS
 }
 
 func (c *Command) instTokenClient() (*github.Client, error) {
-	return actions.CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
+	return actions.CreateClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
 }

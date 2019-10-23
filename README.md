@@ -12,6 +12,9 @@ Use for as-is, or as a reference and source-of-inspiration of your own command.
 
 - For PR checking bot: [pullvet](https://github.com/variantdev/go-actions/tree/master/cmd/pullvet) checks labels and milestones associated to each pull request for project management and compliance.
    A pullvet rule looks like `accept only PR that does have at least one of these labels and one or more release notes in the description`.
+- [merge]() merges a PR when it is passing all the required status checks.
+- [say]() adds a comment to an issue or a pull request that triggered the event.
+- [rebase]() rebases the pull request onto the specified branch and force pushes it to the head branch
 - For CI/CD: [exec](https://github.com/variantdev/go-actions/tree/master/cmd/exec) runs an arbitrary command and updates GitHub "Check Run" and/or "Status" accordingly
   - Why you need this? Actions v2 is [based on Checks API](https://help.github.com/en/articles/managing-a-workflow-run#about-workflow-management) and suffers from [duplicated statuses from repeated workflow runs](https://github.community/t5/GitHub-Actions/duplicate-checks-on-pull-request-event/td-p/33157). Use the [Statuses](https://developer.github.com/v3/repos/statuses/) API for a non-duplicated status.
 

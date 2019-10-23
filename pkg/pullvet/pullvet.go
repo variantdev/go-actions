@@ -34,6 +34,9 @@ type Command struct {
 	requireAny   bool
 	requireAll   bool
 
+	minApprovals       int
+	requireApprovalsBy cmd.StringSlice
+
 	getPullRequestBody func(string, string, int) (string, error)
 }
 
@@ -56,6 +59,8 @@ func (c *Command) AddFlags(fs *flag.FlagSet) {
 	fs.Var(&c.labelMatches, "label-match", "Regexp pattern to match label name against. If set, pullvet tries to find the label matches any of patterns and fail if none matched.")
 	fs.Var(&c.milestoneMatches, "milestone-match", "Regexp pattern to match milestone title against. If set, pullvet tries to find the milestone matches any of patterns and fail if none matched.")
 	fs.Var(&c.noteTitles, "note", "Require a note with the specified title. pullvet fails whenever the pr misses the note in the pr description. A note can be written in Markdown as: **<title>**:\n```\n<body>\n```")
+	fs.Var(&c.requireApprovalsBy, "approved-by", "Require approval from user(s). Use GitHub login name like `mumoshu` without `@`")
+	fs.IntVar(&c.minApprovals, "min-approvals", 0, "Require N approval(s)")
 	fs.StringVar(&c.noteRegex, "note-regex", defaultNoteRegex, "Regexp pattern of each note(including the title and the body)")
 }
 
@@ -144,6 +149,43 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 		}
 	}
 
+	if len(c.requireApprovalsBy) > 0 || c.minApprovals > 0 {
+		client, err := actions.CreateClient(os.Getenv("GITHUB_TOKEN"), "", "")
+		if err != nil {
+			return err
+		}
+		reviews, res, err := client.PullRequests.ListReviews(context.Background(), owner, repo, pullRequest.GetNumber(), &github.ListOptions{})
+		if err != nil && res.StatusCode != 404 {
+			return err
+		}
+
+		approvedUsers := map[string]struct{}{}
+		for _, r := range reviews {
+			approvedUsers[r.User.GetLogin()] = struct{}{}
+		}
+
+		if len(c.requireApprovalsBy) > 0 {
+			allApproved := true
+			for _, u := range c.requireApprovalsBy {
+				_, ok := approvedUsers[u]
+				allApproved = allApproved && ok
+			}
+			if allApproved {
+				any = true
+			} else {
+				all = false
+			}
+		}
+
+		if c.minApprovals > 0 {
+			if len(approvedUsers) > c.minApprovals {
+				any = true
+			} else {
+				all = false
+			}
+		}
+	}
+
 	if c.anyMilestone {
 		if milestone != "" {
 			any = true
@@ -202,7 +244,7 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 }
 
 func GetPullRequestBody(owner, repo string, prNumber int) (string, error) {
-	client, err := actions.CreateInstallationTokenClient(os.Getenv("GITHUB_TOKEN"), "", "")
+	client, err := actions.CreateClient(os.Getenv("GITHUB_TOKEN"), "", "")
 	if err != nil {
 		return "", err
 	}
