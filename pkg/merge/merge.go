@@ -104,7 +104,7 @@ func (c *Command) MergeIfNecessary(pre *Target) error {
 		}
 	}
 
-	log.Print("Merging the pull request with method %q", c.Method)
+	log.Printf("Merging the pull request with method %q", c.Method)
 
 	_, _, mergeErr := client.PullRequests.Merge(context.Background(), owner, repo, num, "", &github.PullRequestOptions{
 		MergeMethod: c.Method,
