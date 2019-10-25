@@ -92,10 +92,35 @@ func GetPullRequest(issue *github.IssuesEvent) (*github.PullRequest, error) {
 	return pull, nil
 }
 
+func IssueNumberOwnerRepo() (int, string, string, error) {
+	var num int
+	var owner, repo string
+	switch EventName() {
+	case "issues":
+		evt, err := IssueEvent()
+		if err != nil {
+			return 0, "", "", err
+		}
+		owner = evt.Repo.Owner.GetLogin()
+		repo = evt.Repo.GetName()
+		num = evt.Issue.GetNumber()
+	case "pull_request":
+		evt, err := PullRequestEvent()
+		if err != nil {
+			return 0, "", "", err
+		}
+		owner = evt.Repo.Owner.GetLogin()
+		repo = evt.Repo.GetName()
+		num = evt.PullRequest.GetNumber()
+	}
+	return num, owner, repo, nil
+}
+
 func PullRequest() (*github.PullRequest, string, string, error) {
 	var pr *github.PullRequest
 	var owner, repo string
-	switch EventName() {
+	evtName := EventName()
+	switch evtName {
 	case "issues":
 		issue, err := IssueEvent()
 		if err != nil {
@@ -133,6 +158,8 @@ func PullRequest() (*github.PullRequest, string, string, error) {
 		pr = checkSuite.CheckSuite.PullRequests[0]
 		owner = checkSuite.Repo.Owner.GetLogin()
 		repo = checkSuite.Repo.GetName()
+	default:
+		return nil, "", "", fmt.Errorf("unhandled event name %q. expected one of: issues, pull_request, check_run, check_suite", evtName)
 	}
 	return pr, owner, repo, nil
 }

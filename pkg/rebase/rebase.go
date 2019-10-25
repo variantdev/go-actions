@@ -9,7 +9,7 @@ import (
 	"github.com/variantdev/go-actions"
 )
 
-type Command struct {
+type Action struct {
 	BaseURL, UploadURL string
 }
 
@@ -18,44 +18,34 @@ type Target struct {
 	PullRequest *github.PullRequest
 }
 
-func New() *Command {
-	return &Command{
+func New() *Action {
+	return &Action{
 		BaseURL:   "",
 		UploadURL: "",
 	}
 }
 
-func (c *Command) AddFlags(fs *flag.FlagSet) {
+func (c *Action) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.BaseURL, "github-base-url", "", "")
 	fs.StringVar(&c.UploadURL, "github-upload-url", "", "")
 }
 
-func (c *Command) Run() error {
-	evt, err := actions.ParseEvent()
+func (c *Action) Run() error {
+	pr, owner, repo, err := actions.PullRequest()
 	if err != nil {
 		return err
 	}
-	return c.HandleEvent(evt)
-}
-
-func (c *Command) HandleEvent(payload interface{}) error {
-	switch e := payload.(type) {
-	case *github.PullRequestEvent:
-		owner := e.Repo.Owner.GetLogin()
-		repo := e.Repo.GetName()
-		target := &Target{
-			Owner:       owner,
-			Repo:        repo,
-			PullRequest: e.PullRequest,
-		}
-		return c.ForcePushRebased(target)
+	target := &Target{
+		Owner:       owner,
+		Repo:        repo,
+		PullRequest: pr,
 	}
-	return nil
+	return c.ForcePushRebased(target)
 }
 
 // The rebase-via-github-api algorithm comes from https://github.com/tibdex/github-cherry-pick
 // Thanks a lot for the original author!
-func (c *Command) ForcePushRebased(pre *Target) error {
+func (c *Action) ForcePushRebased(pre *Target) error {
 	client, err := c.getClient()
 	if err != nil {
 		return err
@@ -156,6 +146,6 @@ func (c *Command) ForcePushRebased(pre *Target) error {
 	return refErr
 }
 
-func (c *Command) getClient() (*github.Client, error) {
+func (c *Action) getClient() (*github.Client, error) {
 	return actions.CreateClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
 }

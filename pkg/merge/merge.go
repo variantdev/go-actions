@@ -11,7 +11,7 @@ import (
 	"github.com/variantdev/go-actions"
 )
 
-type Command struct {
+type Action struct {
 	BaseURL, UploadURL string
 
 	Force  bool
@@ -23,44 +23,34 @@ type Target struct {
 	PullRequest *github.PullRequest
 }
 
-func New() *Command {
-	return &Command{
+func New() *Action {
+	return &Action{
 		BaseURL:   "",
 		UploadURL: "",
 	}
 }
 
-func (c *Command) AddFlags(fs *flag.FlagSet) {
+func (c *Action) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.BaseURL, "github-base-url", "", "")
 	fs.StringVar(&c.UploadURL, "github-upload-url", "", "")
 	fs.BoolVar(&c.Force, "force", false, "Merges the pull request even if required checks are NOT passing")
 	fs.StringVar(&c.Method, "method", "merge", ` The merge method to use. Possible values include: "merge", "squash", and "rebase" with the default being merge`)
 }
 
-func (c *Command) Run() error {
-	evt, err := actions.ParseEvent()
+func (c *Action) Run() error {
+	pr, owner, repo, err := actions.PullRequest()
 	if err != nil {
 		return err
 	}
-	return c.HandleEvent(evt)
-}
-
-func (c *Command) HandleEvent(payload interface{}) error {
-	switch e := payload.(type) {
-	case *github.PullRequestEvent:
-		owner := e.Repo.Owner.GetLogin()
-		repo := e.Repo.GetName()
-		target := &Target{
-			Owner:       owner,
-			Repo:        repo,
-			PullRequest: e.PullRequest,
-		}
-		return c.MergeIfNecessary(target)
+	target := &Target{
+		Owner:       owner,
+		Repo:        repo,
+		PullRequest: pr,
 	}
-	return nil
+	return c.MergeIfNecessary(target)
 }
 
-func (c *Command) MergeIfNecessary(pre *Target) error {
+func (c *Action) MergeIfNecessary(pre *Target) error {
 	client, err := c.getClient()
 	if err != nil {
 		return err
@@ -113,6 +103,6 @@ func (c *Command) MergeIfNecessary(pre *Target) error {
 	return mergeErr
 }
 
-func (c *Command) getClient() (*github.Client, error) {
+func (c *Action) getClient() (*github.Client, error) {
 	return actions.CreateClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
 }

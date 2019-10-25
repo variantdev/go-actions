@@ -15,17 +15,17 @@ import (
 	"github.com/variantdev/go-actions"
 )
 
-type Command struct {
+type Action struct {
 	BaseURL, UploadURL string
 
 	checkRunName string
 
-	statusContext     string
-	statusDescription string
-	statusTargetURL   string
+	StatusContext     string
+	StatusDescription string
+	StatusTargetURL   string
 
-	cmd  string
-	args []string
+	Cmd  string
+	Args []string
 }
 
 type Target struct {
@@ -33,62 +33,41 @@ type Target struct {
 	PullRequest *github.PullRequest
 }
 
-func New() *Command {
-	return &Command{
+func New() *Action {
+	return &Action{
 		BaseURL:   "",
 		UploadURL: "",
 	}
 }
 
-func (c *Command) AddFlags(fs *flag.FlagSet) {
+func (c *Action) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.BaseURL, "github-base-url", "", "")
 	fs.StringVar(&c.UploadURL, "github-upload-url", "", "")
 	fs.StringVar(&c.checkRunName, "check-run-name", "", "CheckRun's name to be updated after the command in run")
-	fs.StringVar(&c.statusContext, "status-context", "", "Commit status' context. If not empty, `exec` creates a status with this context")
-	fs.StringVar(&c.statusDescription, "status-description", "", "Commit status' description. `exec` creates a status with this description")
-	fs.StringVar(&c.statusTargetURL, "status-target-url", "", "Commit status' target_url. `exec` creates a status with this url as the link target")
+	fs.StringVar(&c.StatusContext, "status-context", "", "Commit status' context. If not empty, `exec` creates a status with this context")
+	fs.StringVar(&c.StatusDescription, "status-description", "", "Commit status' description. `exec` creates a status with this description")
+	fs.StringVar(&c.StatusTargetURL, "status-target-url", "", "Commit status' target_url. `exec` creates a status with this url as the link target")
 }
 
-func (c *Command) Run(args []string) error {
+func (c *Action) Run(args []string) error {
 	numArgs := len(args)
 	if numArgs > 0 {
-		c.cmd = args[0]
+		c.Cmd = args[0]
 	}
 	if numArgs > 1 {
-		c.args = args[1:]
+		c.Args = args[1:]
 	}
 
-	evt, err := actions.ParseEvent()
+	pr, owner, repo, err := actions.PullRequest()
 	if err != nil {
 		return err
 	}
-	return c.HandleEvent(evt)
-}
-
-func (c *Command) HandleEvent(payload interface{}) error {
-	switch e := payload.(type) {
-	case *github.IssuesEvent:
-		pull, err := actions.GetPullRequest(e)
-		if err != nil {
-			return err
-		}
-		target := &Target{
-			Owner:       e.Repo.Owner.GetLogin(),
-			Repo:        e.Repo.GetName(),
-			PullRequest: pull,
-		}
-		return c.EnsureCheckRun(target)
-	case *github.PullRequestEvent:
-		owner := e.Repo.Owner.GetLogin()
-		repo := e.Repo.GetName()
-		target := &Target{
-			Owner:       owner,
-			Repo:        repo,
-			PullRequest: e.PullRequest,
-		}
-		return c.EnsureCheckRun(target)
+	target := &Target{
+		Owner:       owner,
+		Repo:        repo,
+		PullRequest: pr,
 	}
-	return nil
+	return c.EnsureCheckRun(target)
 }
 
 type Run struct {
@@ -97,7 +76,7 @@ type Run struct {
 	runId             int64
 }
 
-func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.CheckRun, error) {
+func (c *Action) createCheckRun(suite *github.CheckSuite, cr Run) (*github.CheckRun, error) {
 	client, err := c.instTokenClient()
 	if err != nil {
 		return nil, err
@@ -119,7 +98,7 @@ func (c *Command) createCheckRun(suite *github.CheckSuite, cr Run) (*github.Chec
 	return created, err
 }
 
-func (c *Command) CreateAndLogStatus(client *github.Client, owner, repo, sha string, status *github.RepoStatus) error {
+func (c *Action) CreateAndLogStatus(client *github.Client, owner, repo, sha string, status *github.RepoStatus) error {
 	desc := status.GetDescription()
 	if len(desc) > 140 {
 		// Otherwise you get errors like:
@@ -145,7 +124,7 @@ func (c *Command) CreateAndLogStatus(client *github.Client, owner, repo, sha str
 	return nil
 }
 
-func (c *Command) EnsureCheckRun(pre *Target) error {
+func (c *Action) EnsureCheckRun(pre *Target) error {
 	client, err := c.instTokenClient()
 	if err != nil {
 		return err
@@ -155,15 +134,15 @@ func (c *Command) EnsureCheckRun(pre *Target) error {
 	repo := pre.Repo
 	sha := pre.PullRequest.Head.GetSHA()
 
-	if c.statusContext != "" {
+	if c.StatusContext != "" {
 		status := &github.RepoStatus{
 			State:       github.String("pending"),
-			Context:     github.String(c.statusContext),
-			Description: github.String(c.statusDescription),
+			Context:     github.String(c.StatusContext),
+			Description: github.String(c.StatusDescription),
 		}
 
-		if c.statusTargetURL != "" {
-			status.TargetURL = github.String(c.statusTargetURL)
+		if c.StatusTargetURL != "" {
+			status.TargetURL = github.String(c.StatusTargetURL)
 		}
 
 		if err := c.CreateAndLogStatus(client, owner, repo, sha, status); err != nil {
@@ -171,7 +150,7 @@ func (c *Command) EnsureCheckRun(pre *Target) error {
 		}
 	}
 
-	log.Printf("Running command: %q", c.cmd)
+	log.Printf("Running command: %q", c.Cmd)
 
 	summary, text, runErr := c.runIt()
 
@@ -218,7 +197,7 @@ func (c *Command) EnsureCheckRun(pre *Target) error {
 		}
 	}
 
-	if c.statusContext != "" {
+	if c.StatusContext != "" {
 		var state string
 		if runErr != nil {
 			state = "failure"
@@ -228,20 +207,20 @@ func (c *Command) EnsureCheckRun(pre *Target) error {
 
 		var desc string
 
-		if c.statusDescription != "" {
-			desc = c.statusDescription + ". " + summary
+		if c.StatusDescription != "" {
+			desc = c.StatusDescription + ". " + summary
 		} else {
 			desc = summary
 		}
 
 		status := &github.RepoStatus{
 			State:       github.String(state),
-			Context:     github.String(c.statusContext),
+			Context:     github.String(c.StatusContext),
 			Description: github.String(desc),
 		}
 
-		if c.statusTargetURL != "" {
-			status.TargetURL = github.String(c.statusTargetURL)
+		if c.StatusTargetURL != "" {
+			status.TargetURL = github.String(c.StatusTargetURL)
 		}
 
 		if err := c.CreateAndLogStatus(client, owner, repo, sha, status); err != nil {
@@ -252,7 +231,7 @@ func (c *Command) EnsureCheckRun(pre *Target) error {
 	return runErr
 }
 
-func (c *Command) logCheckRun(checkRun *github.CheckRun) {
+func (c *Action) logCheckRun(checkRun *github.CheckRun) {
 	buf := &bytes.Buffer{}
 	enc := json.NewEncoder(buf)
 	enc.SetIndent("", "  ")
@@ -262,11 +241,11 @@ func (c *Command) logCheckRun(checkRun *github.CheckRun) {
 	log.Printf("CheckRun:\n%s", buf.String())
 }
 
-func (c *Command) EnsureCheckSuite(pre *Target) (*github.CheckSuite, error) {
+func (c *Action) EnsureCheckSuite(pre *Target) (*github.CheckSuite, error) {
 	return c.getOneOfSuitesAlreadyCreatedByGitHubActions(pre)
 }
 
-func (c *Command) UpdateCheckRun(owner, repo string, checkRun *github.CheckRun, summary, text string, runErr error) error {
+func (c *Action) UpdateCheckRun(owner, repo string, checkRun *github.CheckRun, summary, text string, runErr error) error {
 	if checkRun.GetName() != c.checkRunName {
 		return fmt.Errorf("unexpected run name: expected %q, got %q", c.checkRunName, checkRun.GetName())
 	}
@@ -297,7 +276,7 @@ func (c *Command) UpdateCheckRun(owner, repo string, checkRun *github.CheckRun, 
 		CompletedAt: &github.Timestamp{Time: time.Now()},
 		// See https://developer.github.com/v3/checks/runs/#output-object-1
 		Output: &github.CheckRunOutput{
-			Title:   github.String(c.cmd),
+			Title:   github.String(c.Cmd),
 			Summary: github.String(fmt.Sprintf("```\n%s\n```", summary)),
 			Text:    github.String(fmt.Sprintf("```\n%s\n```", text)),
 		},
@@ -307,11 +286,11 @@ func (c *Command) UpdateCheckRun(owner, repo string, checkRun *github.CheckRun, 
 	return err
 }
 
-func (c *Command) runIt() (string, string, error) {
-	return actions.RunCmd(c.cmd, c.args)
+func (c *Action) runIt() (string, string, error) {
+	return actions.RunCmd(c.Cmd, c.Args)
 }
 
-func (c *Command) logResponseAndError(suites *github.ListCheckSuiteResults, res *github.Response, err error) error {
+func (c *Action) logResponseAndError(suites *github.ListCheckSuiteResults, res *github.Response, err error) error {
 	if err != nil {
 		log.Printf("Error listing suites: %v", err)
 	} else {
@@ -338,7 +317,7 @@ func (c *Command) logResponseAndError(suites *github.ListCheckSuiteResults, res 
 	return nil
 }
 
-func (c *Command) getOneOfSuitesAlreadyCreatedByGitHubActions(pre *Target) (*github.CheckSuite, error) {
+func (c *Action) getOneOfSuitesAlreadyCreatedByGitHubActions(pre *Target) (*github.CheckSuite, error) {
 	client, err := c.instTokenClient()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create a new installation token client: %s", err)
@@ -369,6 +348,6 @@ func (c *Command) getOneOfSuitesAlreadyCreatedByGitHubActions(pre *Target) (*git
 	return nil, nil
 }
 
-func (c *Command) instTokenClient() (*github.Client, error) {
+func (c *Action) instTokenClient() (*github.Client, error) {
 	return actions.CreateClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
 }

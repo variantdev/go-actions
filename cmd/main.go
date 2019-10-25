@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/variantdev/go-actions/cmd/pullvet"
+	"github.com/variantdev/go-actions/pkg/cli"
 	"github.com/variantdev/go-actions/pkg/exec"
 	"github.com/variantdev/go-actions/pkg/merge"
-	"github.com/variantdev/go-actions/pkg/pullvet"
 	"github.com/variantdev/go-actions/pkg/rebase"
 	"github.com/variantdev/go-actions/pkg/say"
 )
@@ -51,17 +52,20 @@ func main() {
 		return
 	}
 
-	switch os.Args[1] {
-	case CmdPullvet:
-		fs := flag.NewFlagSet(CmdPullvet, flag.ExitOnError)
-		cmd := pullvet.New()
-		cmd.AddFlags(fs)
+	subCommands := []cli.Command{
+		pullvet.Command,
+	}
 
-		fs.Parse(os.Args[2:])
-
-		if err := cmd.Run(); err != nil {
-			fatal("%v\n", err)
+	for _, subCmd := range subCommands {
+		if subCmd.Name() == os.Args[1] {
+			if err := subCmd.Run(os.Args[2:]); err != nil {
+				fatal("%v\n", err)
+			}
+			os.Exit(0)
 		}
+	}
+
+	switch os.Args[1] {
 	case CmdExec:
 		fs := flag.NewFlagSet(CmdExec, flag.ExitOnError)
 		cmd := exec.New()

@@ -9,7 +9,7 @@ import (
 	"github.com/variantdev/go-actions"
 )
 
-type Command struct {
+type Action struct {
 	BaseURL, UploadURL string
 	Body string
 }
@@ -19,50 +19,34 @@ type Target struct {
 	IssueNumber int
 }
 
-func New() *Command {
-	return &Command{
+func New() *Action {
+	return &Action{
 		BaseURL:   "",
 		UploadURL: "",
 	}
 }
 
-func (c *Command) AddFlags(fs *flag.FlagSet) {
+func (c *Action) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.BaseURL, "github-base-url", "", "")
 	fs.StringVar(&c.UploadURL, "github-upload-url", "", "")
 	fs.StringVar(&c.Body, "body", "", " The contents of the comment.")
 }
 
-func (c *Command) Run() error {
-	evt, err := actions.ParseEvent()
+func (c *Action) Run() error {
+	num, owner, repo, err := actions.IssueNumberOwnerRepo()
 	if err != nil {
 		return err
 	}
-	return c.HandleEvent(evt)
-}
-
-func (c *Command) HandleEvent(payload interface{}) error {
-	switch e := payload.(type) {
-	case *github.IssuesEvent:
-		target := &Target{
-			Owner:       e.Repo.Owner.GetLogin(),
-			Repo:        e.Repo.GetName(),
-			IssueNumber: e.Issue.GetNumber(),
-		}
-		return c.AddComment(target)
-	case *github.PullRequestEvent:
-		owner := e.Repo.Owner.GetLogin()
-		repo := e.Repo.GetName()
-		target := &Target{
-			Owner:       owner,
-			Repo:        repo,
-			IssueNumber: e.PullRequest.GetNumber(),
-		}
-		return c.AddComment(target)
+	target := &Target{
+		Owner:       owner,
+		Repo:        repo,
+		IssueNumber: num,
 	}
-	return nil
+	return c.AddComment(target)
 }
 
-func (c *Command) AddComment(target *Target) error {
+
+func (c *Action) AddComment(target *Target) error {
 	client, err := c.createClient()
 	if err != nil {
 		return err
@@ -75,6 +59,6 @@ func (c *Command) AddComment(target *Target) error {
 	return err
 }
 
-func (c *Command) createClient() (*github.Client, error) {
+func (c *Action) createClient() (*github.Client, error) {
 	return actions.CreateClient(os.Getenv("GITHUB_TOKEN"), c.BaseURL, c.UploadURL)
 }

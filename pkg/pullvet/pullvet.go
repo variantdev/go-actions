@@ -4,67 +4,52 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
-	"github.com/google/go-github/v28/github"
-	"github.com/variantdev/go-actions"
-	"github.com/variantdev/go-actions/pkg/cmd"
 	"log"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/google/go-github/v28/github"
+	"github.com/variantdev/go-actions"
 )
 
-const defaultNoteRegex = "[\\*]*([^\\*\r\n:]+)[\\*]*:\\s```\n([^`]+)\n```"
+const DefaultNoteRegex = "[\\*]*([^\\*\r\n:]+)[\\*]*:\\s+```[^\n]*\n([^`]+)\n```"
 
 var newlineRegex = regexp.MustCompile(`\r\n|\r|\n`)
 
-type Command struct {
-	labels     cmd.StringSlice
-	noteTitles cmd.StringSlice
+type Action struct {
+	Labels     actions.StringSlice
+	NoteTitles actions.StringSlice
 
-	labelMatches     cmd.StringSlice
-	milestoneMatches cmd.StringSlice
+	LabelMatches     actions.StringSlice
+	MilestoneMatches actions.StringSlice
 
-	noteRegex string
+	NoteRegex string
 
-	milestone string
+	Milestone string
 
-	anyMilestone bool
-	requireAny   bool
-	requireAll   bool
+	AnyMilestone bool
+	RequireAny   bool
+	RequireAll   bool
 
-	minApprovals       int
-	requireApprovalsBy cmd.StringSlice
+	MinApprovals       int
+	RequireApprovalsBy actions.StringSlice
 
-	getPullRequestBody func(string, string, int) (string, error)
+	GetPullRequestBody func(string, string, int) (string, error)
 }
 
 func normalizeNewlines(str string) string {
 	return newlineRegex.ReplaceAllString(str, "\n")
 }
 
-func New() *Command {
-	return &Command{
-		getPullRequestBody: GetPullRequestBody,
+func New() *Action {
+	return &Action{
+		GetPullRequestBody: GetPullRequestBody,
 	}
 }
 
-func (c *Command) AddFlags(fs *flag.FlagSet) {
-	fs.BoolVar(&c.requireAny, "require-any", true, "If set, pullvet fails whenever the pull request was unable to fullfill all the requirements")
-	fs.BoolVar(&c.requireAll, "require-all", false, "If set, pullvet fails whenever the pull request was unable to fullfill any of the requirements")
-	fs.Var(&c.labels, "label", "Required label. When provided multiple times, pullvet succeeds if one or more of required labels exist")
-	fs.BoolVar(&c.anyMilestone, "any-milestone", false, "If set, pullvet fails whenever the pull request misses a milestone")
-	fs.StringVar(&c.milestone, "milestone", "", "If set, pullvet fails whenever the pull request misses a milestone")
-	fs.Var(&c.labelMatches, "label-match", "Regexp pattern to match label name against. If set, pullvet tries to find the label matches any of patterns and fail if none matched.")
-	fs.Var(&c.milestoneMatches, "milestone-match", "Regexp pattern to match milestone title against. If set, pullvet tries to find the milestone matches any of patterns and fail if none matched.")
-	fs.Var(&c.noteTitles, "note", "Require a note with the specified title. pullvet fails whenever the pr misses the note in the pr description. A note can be written in Markdown as: **<title>**:\n```\n<body>\n```")
-	fs.Var(&c.requireApprovalsBy, "approved-by", "Require approval from user(s). Use GitHub login name like `mumoshu` without `@`")
-	fs.IntVar(&c.minApprovals, "min-approvals", 0, "Require N approval(s)")
-	fs.StringVar(&c.noteRegex, "note-regex", defaultNoteRegex, "Regexp pattern of each note(including the title and the body)")
-}
-
-func (c *Command) Run() error {
+func (c *Action) Run() error {
 	pr, owner, repo, err := actions.PullRequest()
 	if err != nil {
 		return err
@@ -72,7 +57,7 @@ func (c *Command) Run() error {
 	return c.HandlePullRequest(owner, repo, pr)
 }
 
-func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.PullRequest) error {
+func (c *Action) HandlePullRequest(owner, repo string, pullRequest *github.PullRequest) error {
 	var labels []string
 	labelSet := map[string]struct{}{}
 
@@ -88,7 +73,7 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 	var passed int
 	var failures []string
 
-	for _, requiredLabel := range c.labels {
+	for _, requiredLabel := range c.Labels {
 		if _, ok := labelSet[requiredLabel]; ok {
 			any = true
 			passed += 1
@@ -99,7 +84,7 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 	}
 
 	labelRegexs := []*regexp.Regexp{}
-	for _, p := range c.labelMatches {
+	for _, p := range c.LabelMatches {
 		labelRegexs = append(labelRegexs, regexp.MustCompile(p))
 	}
 
@@ -123,18 +108,18 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 
 	milestone := pullRequest.Milestone.GetTitle()
 
-	if c.milestone != "" {
-		if milestone == c.milestone {
+	if c.Milestone != "" {
+		if milestone == c.Milestone {
 			any = true
 			passed += 1
 		} else {
 			all = false
-			failures = append(failures, fmt.Sprintf("unexpected milestone: expected %q, got %q", c.milestone, milestone))
+			failures = append(failures, fmt.Sprintf("unexpected milestone: expected %q, got %q", c.Milestone, milestone))
 		}
 	}
 
 	milestoneRegexs := []*regexp.Regexp{}
-	for _, p := range c.milestoneMatches {
+	for _, p := range c.MilestoneMatches {
 		milestoneRegexs = append(milestoneRegexs, regexp.MustCompile(p))
 	}
 
@@ -149,7 +134,7 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 		}
 	}
 
-	if len(c.requireApprovalsBy) > 0 || c.minApprovals > 0 {
+	if len(c.RequireApprovalsBy) > 0 || c.MinApprovals > 0 {
 		client, err := actions.CreateClient(os.Getenv("GITHUB_TOKEN"), "", "")
 		if err != nil {
 			return err
@@ -164,9 +149,9 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 			approvedUsers[r.User.GetLogin()] = struct{}{}
 		}
 
-		if len(c.requireApprovalsBy) > 0 {
+		if len(c.RequireApprovalsBy) > 0 {
 			allApproved := true
-			for _, u := range c.requireApprovalsBy {
+			for _, u := range c.RequireApprovalsBy {
 				_, ok := approvedUsers[u]
 				allApproved = allApproved && ok
 			}
@@ -177,8 +162,8 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 			}
 		}
 
-		if c.minApprovals > 0 {
-			if len(approvedUsers) > c.minApprovals {
+		if c.MinApprovals > 0 {
+			if len(approvedUsers) > c.MinApprovals {
 				any = true
 			} else {
 				all = false
@@ -186,7 +171,7 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 		}
 	}
 
-	if c.anyMilestone {
+	if c.AnyMilestone {
 		if milestone != "" {
 			any = true
 			passed += 1
@@ -202,7 +187,7 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 
 	if owner != "" {
 		var err error
-		body, err = c.getPullRequestBody(owner, repo, pullRequest.GetNumber())
+		body, err = c.GetPullRequestBody(owner, repo, pullRequest.GetNumber())
 		if err != nil {
 			return err
 		}
@@ -210,7 +195,7 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 		body = pullRequest.GetBody()
 	}
 
-	regex := regexp.MustCompile(c.noteRegex)
+	regex := regexp.MustCompile(c.NoteRegex)
 
 	allNoteMatches := regex.FindAllStringSubmatch(normalizeNewlines(body), -1)
 	for _, m := range allNoteMatches {
@@ -220,7 +205,7 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 
 	log.Printf("note titles: %v", noteTitles)
 
-	for _, requiredNoteTitle := range c.noteTitles {
+	for _, requiredNoteTitle := range c.NoteTitles {
 		if _, ok := noteTitles[requiredNoteTitle]; ok {
 			any = true
 			passed += 1
@@ -230,7 +215,7 @@ func (c *Command) HandlePullRequest(owner, repo string, pullRequest *github.Pull
 		}
 	}
 
-	if (c.requireAny && !any) || c.requireAll && !all {
+	if (c.RequireAny && !any) || c.RequireAll && !all {
 		e := fmt.Errorf("%d check(s) failed:\n%s\n", len(failures), formatFailures(failures))
 
 		fmt.Fprintf(os.Stdout, "%s\n", e.Error())
