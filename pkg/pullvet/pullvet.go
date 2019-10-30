@@ -14,7 +14,7 @@ import (
 	"github.com/variantdev/go-actions"
 )
 
-const DefaultNoteRegex = "[\\*]*([^\\*\r\n:]+)[\\*]*:\\s+```[^\n]*\n([^`]+)\n```"
+const DefaultNoteRegex = "[\\*]*([^\\*\r\n:]+)[\\*]*:\\s+```[^\n]*\n((?s).*?)\n```"
 
 var newlineRegex = regexp.MustCompile(`\r\n|\r|\n`)
 

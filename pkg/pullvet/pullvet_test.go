@@ -98,6 +98,18 @@ func TestNoteRegex(t *testing.T) {
 				},
 			},
 		},
+		// inline code block in code block
+		{
+			input: "changelog1:\r\n```\r\nchange `foo` to `bar`\r\n second line \r\n```\r\n",
+			expected: [][]string{
+				{
+					// ensure that \r\n\r\n before "changelog1:" needs to be removed from here
+					"changelog1:\n```\nchange `foo` to `bar`\n second line \n```",
+					"changelog1",
+					"change `foo` to `bar`\n second line ",
+				},
+			},
+		},
 	}
 
 	for i := range testcases {
