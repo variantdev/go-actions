@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/variantdev/go-actions/cmd/pullnote"
 	"github.com/variantdev/go-actions/cmd/pullvet"
 	"github.com/variantdev/go-actions/pkg/cli"
 	"github.com/variantdev/go-actions/pkg/exec"
@@ -54,6 +55,7 @@ func main() {
 
 	subCommands := []cli.Command{
 		pullvet.Command,
+		pullnote.Command,
 	}
 
 	for _, subCmd := range subCommands {
